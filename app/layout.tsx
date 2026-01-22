@@ -3,11 +3,6 @@ import "./globals.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-export const metadata: Metadata = {
-  title: "Warm-Up Journal",
-  description: "A simple journaling app built with Next.js",
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -15,9 +10,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen">
+      <body className="min-h-screen bg-[#DFF7E3] text-neutral-900 overflow-x-hidden">
         <Header />
-        <div className="mx-auto max-w-4xl p-6">{children}</div>
+       <div className="mx-auto max-w-4xl px-2 py-6 sm:px-6">
+        {children}
+      </div>
         <Footer />
       </body>
     </html>

@@ -142,15 +142,32 @@ const goToNextStep = () => {
 };
   // Si no hay steps, mostramos mensaje
   if (steps.length === 0) {
-    return (
-      <section className="mt-6 rounded-2xl border p-5">
-        <h2 className="text-lg font-semibold">Session</h2>
-        <p className="mt-2 text-sm opacity-70">
-          No steps found for this routine yet.
+  return (
+    <section className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-extrabold text-neutral-900">Session</h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            No steps found for this routine yet.
+          </p>
+        </div>
+
+        <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+          ⚠️ Empty routine
+        </span>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4">
+        <p className="text-sm font-bold text-emerald-900">
+          Tip: go to “Edit routine” and add 3–6 items.
         </p>
-      </section>
-    );
-  }
+        <p className="mt-1 text-sm text-neutral-600">
+          Then come back and start your warm-up.
+        </p>
+      </div>
+    </section>
+  );
+}
 
 const goToPreviousStep = () => {
     const prevIndex = currentStepIndex - 1;
@@ -191,41 +208,65 @@ if (isSummaryOpen) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 10 }}
         transition={{ duration: 0.2 }}
-        className="mt-6 rounded-2xl border p-5"
+        className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm"
       >
-        <h2 className="text-xl font-semibold">Session summary</h2>
-        {/* Progress bar (Summary only) */}
-        <div className="mt-3">
-        <div className="flex items-center justify-between text-xs opacity-70">
-            <span>Warmup completed</span>
-            <span>100%</span>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-black tracking-tight text-neutral-900">
+              Session summary
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Review your ratings and notes. Add a final comment if you want.
+            </p>
+          </div>
+
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+            ✅ Completed
+          </span>
         </div>
 
-        <div className="mt-2 h-2 w-full rounded-full border overflow-hidden">
-          <div className="h-full w-full bg-emerald-500/60" />
-        </div>
-        </div>
-        <p className="mt-2 text-sm opacity-70">
-          Review your ratings and notes. Add a final comment if you want.
-        </p>
+        {/* Progress bar */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between text-xs text-neutral-600">
+            <span className="font-bold">Warm-up completed</span>
+            <span className="font-black text-emerald-900">100%</span>
+          </div>
 
-        <div className="mt-5 space-y-3">
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+            <div className="h-full w-full bg-emerald-600" />
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="mt-6 space-y-3">
           {steps.map((step, index) => {
             const progress = progressByIndex[index];
             const label = getStatusLabel(progress);
             const noteText = progress?.note?.trim();
 
             return (
-              <div key={step.id} className="rounded-xl border p-4">
-                <div className="text-sm font-semibold">
-                  {index + 1}. {step.title}
+              <div
+                key={step.id}
+                className="rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-extrabold text-neutral-900">
+                      <span className="mr-2 inline-flex h-7 items-center rounded-full bg-white px-2 text-xs font-black text-emerald-900 border border-emerald-900/10">
+                        {index + 1}
+                      </span>
+                      {step.title}
+                    </div>
+                    <div className="mt-1 text-xs font-bold text-neutral-600">
+                      {label}
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-1 text-xs opacity-70">{label}</div>
 
                 {noteText ? (
-                  <div className="mt-2 text-sm">
-                    <span className="opacity-70">Note:</span>{" "}
-                    <span className="opacity-90">{noteText}</span>
+                  <div className="mt-3 text-sm text-neutral-800">
+                    <span className="font-bold text-neutral-600">Note:</span>{" "}
+                    {noteText}
                   </div>
                 ) : null}
               </div>
@@ -233,10 +274,14 @@ if (isSummaryOpen) {
           })}
         </div>
 
+        {/* Final comment */}
         <div className="mt-6">
-          <p className="text-sm font-semibold">Final comment (optional)</p>
+          <p className="text-sm font-extrabold text-neutral-900">
+            Final comment <span className="text-neutral-500">(optional)</span>
+          </p>
+
           <textarea
-            className="mt-2 w-full rounded border p-3 text-sm"
+            className="mt-3 w-full rounded-2xl border border-emerald-900/15 bg-emerald-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
             placeholder="Anything to remember about today’s warmup?"
             value={finalComment}
             onChange={(e) => setFinalComment(e.target.value)}
@@ -244,21 +289,22 @@ if (isSummaryOpen) {
           />
         </div>
 
-        <div className="mt-6 flex gap-3">
+        {/* Actions */}
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
           <motion.button
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setIsSummaryOpen(false)}
-            className="rounded border px-4 py-2 cursor-pointer"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50"
           >
             Back to session
           </motion.button>
 
           <motion.button
-            whileTap={{ scale: 0.96 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() =>
               console.log("Finish (mock):", { routineId, progressByIndex, finalComment })
             }
-            className="rounded border px-4 py-2 cursor-pointer"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700"
           >
             Finish
           </motion.button>
@@ -269,7 +315,7 @@ if (isSummaryOpen) {
 }
 
 return (
-  <section className="mt-6 rounded-2xl border p-5">
+  <section className="rounded-3xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
     {/* STEP CONTENT animado */}
     <AnimatePresence mode="wait">
       <motion.div
@@ -279,54 +325,69 @@ return (
         exit={{ opacity: 0, x: direction * -20 }}
         transition={{ duration: 0.18 }}
       >
-        <div className="mb-4">
-            <div className="flex items-center justify-between text-xs opacity-70">
-                <span>
-                {currentStepNumber} / {totalSteps}
-                </span>
-                <span>{Math.round(progressPercent)}%</span>
-            </div>
+        {/* Progress */}
+        <div className="mb-4 sm:mb-5">
+          <div className="flex items-center justify-between text-xs text-neutral-600">
+            <span className="font-bold">
+              Step {currentStepNumber} / {totalSteps}
+            </span>
+            <span className="font-black text-emerald-900">
+              {Math.round(progressPercent)}%
+            </span>
+          </div>
 
-            <div className="mt-2 h-2 w-full rounded-full border overflow-hidden">
-                <motion.div
-                className="h-full bg-white/30"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPercent}%` }}
-                transition={{ type: "spring", stiffness: 140, damping: 20 }}
-                />
-            </div>
-        </div>
-        {/* Header del step */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm opacity-70">
-              Step {currentStepIndex + 1} of {steps.length}
-            </p>
-            <h2 className="mt-1 text-xl font-semibold">{currentStep.title}</h2>
-            <p className="mt-2 text-sm opacity-80">{currentStep.description}</p>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+            <motion.div
+              className="h-full bg-emerald-600"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ type: "spring", stiffness: 140, damping: 20 }}
+            />
           </div>
         </div>
 
-        {/* Visual placeholder */}
-        <div className="mt-5 rounded-xl border p-4">
-          <p className="text-sm opacity-70">(Visual placeholder)</p>
-          <p className="mt-1 text-xs opacity-60">Image: {currentStep.imageUrl}</p>
+        {/* Step header */}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+              🎯 Current
+            </span>
+
+            <span className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-3 py-1 text-xs font-black text-neutral-700">
+              {getStatusLabel(currentProgress)}
+            </span>
+          </div>
+
+          <h2 className="mt-3 text-xl font-black tracking-tight text-emerald-900 sm:text-2xl">
+            {currentStep.title}
+          </h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            {currentStep.description}
+          </p>
         </div>
 
-        {/* Audio player (real) */}
-        <div className="mt-5 rounded-xl border p-4">
-          <p className="text-sm opacity-70">Audio</p>
-
-          <audio controls src={currentStep.audioUrl} className="mt-2 w-full" />
-
-          <p className="mt-2 text-xs opacity-60">Source: {currentStep.audioUrl}</p>
+        {/* Audio (SIN contenedor, full width) */}
+        <div className="mt-4 -mx-2 sm:mx-0">
+          <audio
+            controls
+            src={currentStep.audioUrl}
+            className="w-full"
+          />
+          <p className="mt-2 px-2 text-[11px] text-neutral-500 sm:px-0">
+            Source: <span className="font-mono">{currentStep.audioUrl}</span>
+          </p>
         </div>
 
         {/* Rating + skip */}
         <div className="mt-6">
-          <p className="text-sm font-semibold">How did it feel?</p>
+          <p className="text-sm font-extrabold text-neutral-900">
+            How did it feel?
+          </p>
+          <p className="mt-1 text-xs text-neutral-600">
+            Rate or skip to continue.
+          </p>
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {[1, 2, 3, 4, 5].map((rating) => {
               const isSelected =
                 currentProgress?.status === "rated" &&
@@ -335,11 +396,15 @@ return (
               return (
                 <motion.button
                   key={rating}
-                  whileTap={{ scale: 0.96 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => setRatingForCurrentStep(rating)}
-                  className={`rounded border px-3 py-2 cursor-pointer transition hover:bg-white/10 ${
-                    isSelected ? "bg-white/20" : ""
-                  }`}
+                  className={[
+                    "h-10 w-10 rounded-full border text-sm font-extrabold transition",
+                    "active:scale-[0.97]",
+                    isSelected
+                      ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                      : "border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
+                  ].join(" ")}
                 >
                   {rating}
                 </motion.button>
@@ -347,31 +412,27 @@ return (
             })}
 
             <motion.button
-              whileTap={{ scale: 0.96 }}
+              whileTap={{ scale: 0.97 }}
               onClick={skipCurrentStep}
-              className="rounded border px-3 py-2 cursor-pointer transition hover:bg-white/10"
+              className="inline-flex h-10 items-center justify-center rounded-full border border-emerald-900/15 bg-rose-50 px-4 text-sm font-extrabold text-rose-700 hover:bg-rose-100"
             >
               Skip
             </motion.button>
           </div>
-
-          <p className="mt-2 text-xs opacity-60">
-            You must rate or skip to continue.
-          </p>
         </div>
 
         {/* Note optional */}
-        <div className="mt-4">
+        <div className="mt-5">
           <button
             onClick={() => setIsNoteOpen((prev) => !prev)}
-            className="underline cursor-pointer text-sm"
+            className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-4 py-2 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50"
           >
             {isNoteOpen ? "Hide note" : "Add note (optional)"}
           </button>
 
           {isNoteOpen ? (
             <textarea
-              className="mt-2 w-full rounded border p-3 text-sm"
+              className="mt-3 w-full rounded-2xl border border-emerald-900/15 bg-emerald-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
               placeholder="Optional note (1–2 lines)..."
               value={currentProgress?.note ?? ""}
               onChange={(e) => setNoteForCurrentStep(e.target.value)}
@@ -380,50 +441,60 @@ return (
           ) : null}
         </div>
 
-        {/* Next + summary */}
-        <div className="mt-6 flex items-center justify-between">
-            <motion.button
-                whileTap={{ scale: 0.96 }}
-                onClick={goToPreviousStep}
-                disabled={currentStepIndex === 0}
-                className="rounded border px-4 py-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-                Back
-            </motion.button>
+        {/* Nav */}
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={goToPreviousStep}
+            disabled={currentStepIndex === 0}
+            className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Back
+          </motion.button>
 
+          {currentStepIndex === steps.length - 1 && isCurrentDone ? (
             <motion.button
-                whileTap={{ scale: 0.96 }}
-                onClick={goToNextStep}
-                disabled={!isCurrentDone}
-                className="rounded border px-4 py-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                setIsNoteOpen(false);
+                setIsSummaryOpen(true);
+              }}
+              className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50"
             >
-                Next
+              View summary
             </motion.button>
-
-            {currentStepIndex === steps.length - 1 && isCurrentDone ? (
-                <motion.button
-                whileTap={{ scale: 0.96 }}
-                onClick={() => {
-                    setIsNoteOpen(false);
-                    setIsSummaryOpen(true);
-                }}
-                className="rounded border px-4 py-2 cursor-pointer"
-                >
-                View summary
-                </motion.button>
-            ) : null}
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={goToNextStep}
+              disabled={!isCurrentDone}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </motion.button>
+          )}
         </div>
       </motion.div>
     </AnimatePresence>
 
-    {/* TRACK fijo (no animado) */}
-    <div className="mt-8 border-t pt-4">
-      <p className="text-sm font-semibold">Routine track</p>
+    {/* TRACK fijo (más compacto en mobile) */}
+    <div className="mt-7 border-t border-emerald-900/10 pt-4 sm:mt-8 sm:pt-5">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold text-neutral-900">Routine track</p>
+          <p className="mt-1 text-xs text-neutral-600">
+            What’s done and what’s next.
+          </p>
+        </div>
 
-      <div className="mt-3 space-y-2">
+        <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+          {currentStepNumber}/{totalSteps}
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-2 sm:mt-4">
         {steps.map((step, index) => {
           const progress = progressByIndex[index];
-
           const statusLabel =
             progress?.status === "rated"
               ? `✅ Rated (${progress.rating})`
@@ -436,15 +507,23 @@ return (
           return (
             <div
               key={step.id}
-              className={`flex items-center justify-between rounded border p-3 ${
-                isCurrent ? "opacity-100" : "opacity-80"
-              }`}
+              className={[
+                "flex items-center justify-between rounded-2xl border px-3 py-2 sm:px-4 sm:py-3",
+                isCurrent
+                  ? "border-emerald-600/40 bg-emerald-50 ring-2 ring-emerald-200"
+                  : "border-emerald-900/10 bg-white",
+              ].join(" ")}
             >
-              <div>
-                <div className="text-sm font-medium">
-                  {index + 1}. {step.title}
+              <div className="min-w-0">
+                <div className="text-sm font-extrabold text-neutral-900 truncate">
+                  <span className="mr-2 inline-flex h-7 items-center rounded-full bg-emerald-100 px-2 text-xs font-black text-emerald-900">
+                    {index + 1}
+                  </span>
+                  {step.title}
                 </div>
-                <div className="text-xs opacity-70">{statusLabel}</div>
+                <div className="mt-0.5 text-xs pt-1 font-bold text-neutral-600">
+                  {statusLabel}
+                </div>
               </div>
             </div>
           );

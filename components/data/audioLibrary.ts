@@ -10,29 +10,87 @@ export type AudioItem = {
 
 export const AUDIO_LIBRARY: AudioItem[] = [
   {
-    id: "lip-trills-gentle",
-    name: "Lip trills – gentle",
+    id: "aye-ah",
+    name: "Aye ah aye ah - Chest to mix belt",
     durationSec: 45,
     type: "register",
-    level: "easy",
-    audioUrl: "/audio/lip-trills-gentle.m4a",
+    level: "medium",
+    audioUrl: "/audio/aye_ah_aye_ah_chest_to_mix_belt.mp3",
   },
   {
-    id: "breath-control",
-    name: "Breath control",
+    id: "gorilla",
+    name: "Gorilla",
     durationSec: 60,
     type: "breathing",
     level: "easy",
-    audioUrl: "/audio/breath-control.m4a",
+    audioUrl: "/audio/gorilla.mp3",
   },
   {
-    id: "sirens-medium",
-    name: "Sirens – medium",
+    id: "hey-yeah",
+    name: "Hey Yeah!",
     durationSec: 50,
     type: "range",
     level: "medium",
-    audioUrl: "/audio/sirens-medium.m4a",
+    audioUrl: "/audio/hey_yeah.mp3",
   },
+  {
+    id: "larynx-vox-fry-reset",
+    name: "Larynx vox fry reset",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/larynx_vox_fry_reset.mp3",
+  },
+   {
+    id: "lip-buzz-cold-down",
+    name: "Lip buzz - cold down",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/lip_buzz_cold_down.mp3",
+  }, 
+  {
+    id: "lip-buzzes",
+    name: "Lip buzzes",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/lip_buzzes.mp3",
+  },
+
+  {
+    id: "miau",
+    name: "Miau!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/miau.mp3",
+  },
+  {
+    id: "nuh",
+    name: "Nuh Nuh Nuh!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/nuh.mp3",
+  },
+  {
+    id: "wee-awe",
+    name: "Wee awe!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/wee_awe.mp3",
+  },
+  {
+    id: "wuh-vocal-fry",
+    name: "Wuh - Vocal fry!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/wuh_vocal_fry.mp3",
+  }
+  
 ];
 
 // helper: buscar item por id
