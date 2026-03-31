@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { saveShows, getShows } from "@/lib/firebaseService";
 
 type RatingKey = "voice" | "energy" | "confidence" | "range";
 type Feeling = "Calm" | "Energetic" | "Confident" | "Nervous" | "In the flow" | "Strained";
@@ -9,7 +10,7 @@ type ShowEntry = {
   name: string;
   time: string;
   ratings: Record<RatingKey, number>;
-  feeling: Feeling | null;
+  feelings: Feeling[];
   note: string;
   done: boolean;
 };
@@ -27,7 +28,7 @@ const emptyShow = (): ShowEntry => ({
   name: "",
   time: "",
   ratings: { voice: 0, energy: 0, confidence: 0, range: 0 },
-  feeling: null,
+  feelings: [],
   note: "",
   done: false,
 });
@@ -36,70 +37,106 @@ function StarRow({ value, onChange }: { value: number; onChange: (v: number) => 
   return (
     <div className="flex gap-1.5">
       {[1, 2, 3, 4, 5].map((i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={() => onChange(i)}
+        <button key={i} type="button" onClick={() => onChange(i)}
           className={`w-8 h-8 rounded-lg text-sm transition active:scale-95 border ${
             value >= i
               ? "bg-[#EAF0EB] border-[#3D7A55] text-[#2C5F3F]"
               : "bg-[#F5F2EC] border-[rgba(44,95,63,0.15)] text-[#B5C4B9]"
-          }`}
-        >
-          ★
-        </button>
+          }`}>★</button>
       ))}
     </div>
   );
 }
 
-function EntryView({ show }: { show: ShowEntry }) {
+// ── Time picker: input libre + AM/PM toggle ──────────────────
+function TimePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const parts = value.split(" ");
+  const hourPart = parts[0] || "";
+  const periodPart = parts[1] || "PM";
+
+  const update = (h: string, p: string) => onChange(h ? `${h} ${p}` : "");
+
+  return (
+    <div>
+      <p className="text-[11px] text-[#8FA896] mb-2">Show time</p>
+      <div className="flex gap-2 items-center">
+        <input
+          className="flex-1 bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)]"
+          placeholder="e.g. 8:30"
+          value={hourPart}
+          onChange={(e) => update(e.target.value, periodPart)}
+        />
+        <div className="flex gap-1.5 shrink-0">
+          {["AM", "PM"].map((p) => (
+            <button key={p} type="button" onClick={() => update(hourPart, p)}
+              className={`w-12 h-10 rounded-xl text-[12px] font-bold border transition active:scale-95 ${
+                periodPart === p
+                  ? "bg-[#2C5F3F] text-white border-[#2C5F3F]"
+                  : "bg-white text-[#8FA896] border-[rgba(44,95,63,0.15)] hover:bg-[#EAF0EB]"
+              }`}>{p}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EntryView({ show, onEdit }: { show: ShowEntry; onEdit: () => void }) {
   const avg = Math.round(Object.values(show.ratings).reduce((a, b) => a + b, 0) / 4);
   const stars = Array.from({ length: 5 }, (_, i) => (i < avg ? "★" : "☆")).join("");
 
   return (
     <div className="bg-[#F9F8F5] rounded-2xl p-4 border border-[rgba(44,95,63,0.08)]">
       <div className="flex items-start justify-between mb-3">
-        <div>
-          {show.time && (
-            <p className="text-[11px] text-[#8FA896] font-medium mb-0.5">{show.time}</p>
-          )}
+        <div className="min-w-0">
+          {show.time && <p className="text-[11px] text-[#8FA896] font-medium mb-0.5">{show.time}</p>}
           <p className="text-[14px] font-semibold text-[#1C2B22]">{show.name}</p>
         </div>
-        <span className="text-[13px] text-[#3D7A55] mt-0.5">{stars}</span>
+        <div className="flex items-center gap-2 shrink-0 ml-2">
+          <span className="text-[13px] text-[#3D7A55]">{stars}</span>
+          <button onClick={onEdit}
+            className="w-7 h-7 rounded-full bg-white border border-[rgba(44,95,63,0.15)] flex items-center justify-center text-[#8FA896] hover:text-[#2C5F3F] transition-colors active:scale-95">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <path d="M7.5 1.5L9.5 3.5L3.5 9.5H1.5V7.5L7.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2 mb-2">
-        {RATING_LABELS.map(({ key, label }) => (
-          <span
-            key={key}
-            className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-[rgba(44,95,63,0.1)] text-[#5A7A65]"
-          >
-            {label.split(" ")[0]} {show.ratings[key]}/5
-          </span>
+      <div className="grid grid-cols-4 gap-1.5 mb-3">
+        {[
+          { key: "voice" as RatingKey, short: "Voice" },
+          { key: "energy" as RatingKey, short: "Energy" },
+          { key: "confidence" as RatingKey, short: "Conf." },
+          { key: "range" as RatingKey, short: "Range" },
+        ].map(({ key, short }) => (
+          <div key={key} className="bg-white rounded-xl px-2 py-1.5 border border-[rgba(44,95,63,0.08)] text-center">
+            <p className="text-[9px] text-[#8FA896] font-medium uppercase tracking-wide">{short}</p>
+            <p className="text-[14px] font-bold text-[#2C5F3F] mt-0.5">
+              {show.ratings[key]}<span className="text-[9px] text-[#B5C4B9] font-normal">/5</span>
+            </p>
+          </div>
         ))}
       </div>
-      {show.feeling && (
-        <span className="inline-flex px-3 py-1 rounded-full text-[11px] font-medium bg-[#EAF0EB] text-[#2C5F3F] mr-2">
-          {show.feeling}
-        </span>
+      {show.feelings && show.feelings.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {show.feelings.map((f) => (
+            <span key={f} className="px-3 py-1 rounded-full text-[11px] font-medium bg-[#EAF0EB] text-[#2C5F3F]">{f}</span>
+          ))}
+        </div>
       )}
-      {show.note && (
-        <p className="text-[12px] text-[#8FA896] italic mt-2">"{show.note}"</p>
-      )}
+      {show.note && <p className="text-[12px] text-[#8FA896] italic mt-2">"{show.note}"</p>}
     </div>
   );
 }
 
-function AddShowCard({
-  index,
-  onSave,
-}: {
+function ShowForm({ index, initial, onSave, onCancel }: {
   index: number;
+  initial: ShowEntry;
   onSave: (show: ShowEntry) => void;
+  onCancel: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
-  const [show, setShow] = useState<ShowEntry>(emptyShow());
+  const [show, setShow] = useState<ShowEntry>({ ...initial, feelings: initial.feelings ?? [] });
   const [showValidation, setShowValidation] = useState(false);
 
   const allRated = show.ratings.voice > 0 && show.ratings.energy > 0 &&
@@ -108,42 +145,28 @@ function AddShowCard({
   const setRating = (key: RatingKey, val: number) =>
     setShow((s) => ({ ...s, ratings: { ...s.ratings, [key]: val } }));
 
+  // ── Multi-select toggle ──────────────────────────────────
+  const toggleFeeling = (f: Feeling) =>
+    setShow((s) => ({
+      ...s,
+      feelings: s.feelings.includes(f)
+        ? s.feelings.filter((x) => x !== f)
+        : [...s.feelings, f],
+    }));
+
   const goNext = (from: number) => {
     if (from === 1 && !allRated) { setShowValidation(true); return; }
     setShowValidation(false);
     setStep(from + 1);
   };
 
-  const save = () => {
-    onSave({ ...show, done: true });
-    setOpen(false);
-    setStep(0);
-    setShow(emptyShow());
-  };
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full h-11 rounded-2xl border border-dashed border-[rgba(44,95,63,0.25)] bg-transparent flex items-center justify-center gap-2 text-[13px] text-[#8FA896] font-medium active:scale-[0.98] transition-transform hover:bg-[#F5F2EC]"
-      >
-        <span className="text-base leading-none">+</span> Add show {index + 1}
-      </button>
-    );
-  }
-
   return (
     <div className="bg-[#F9F8F5] rounded-2xl p-4 border border-[rgba(44,95,63,0.1)]">
-      {/* Step dots */}
       <div className="flex items-center gap-1.5 mb-4">
         {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={`h-1.5 rounded-full transition-all ${
-              i === step ? "w-5 bg-[#2C5F3F]" : i < step ? "w-1.5 bg-[#3D7A55]" : "w-1.5 bg-[#D5E0D8]"
-            }`}
-          />
+          <div key={i} className={`h-1.5 rounded-full transition-all ${
+            i === step ? "w-5 bg-[#2C5F3F]" : i < step ? "w-1.5 bg-[#3D7A55]" : "w-1.5 bg-[#D5E0D8]"
+          }`} />
         ))}
         <span className="text-[10px] text-[#8FA896] ml-1">Step {step + 1} of 4</span>
       </div>
@@ -151,25 +174,18 @@ function AddShowCard({
       {step === 0 && (
         <div>
           <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">What show was it?</p>
-          <p className="text-[11px] text-[#8FA896] mb-3">Name and time.</p>
+          <p className="text-[11px] text-[#8FA896] mb-3">Name it and pick the time.</p>
           <input
-            className="w-full bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)] mb-2"
+            className="w-full bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)] mb-4"
             placeholder="e.g. Jazz Club Saturday..."
             value={show.name}
             onChange={(e) => setShow((s) => ({ ...s, name: e.target.value }))}
           />
-          <input
-            className="w-full bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)]"
-            placeholder="Time (e.g. 9:00 PM)"
-            value={show.time}
-            onChange={(e) => setShow((s) => ({ ...s, time: e.target.value }))}
-          />
+          <TimePicker value={show.time} onChange={(t) => setShow((s) => ({ ...s, time: t }))} />
           <div className="flex justify-between items-center mt-4">
-            <button type="button" onClick={() => setOpen(false)} className="text-[12px] text-[#8FA896]">Cancel</button>
+            <button type="button" onClick={onCancel} className="text-[12px] text-[#8FA896]">Cancel</button>
             <button type="button" onClick={() => goNext(0)}
-              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
-              Next →
-            </button>
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">Next →</button>
           </div>
         </div>
       )}
@@ -197,9 +213,7 @@ function AddShowCard({
           <div className="flex justify-between items-center mt-4">
             <button type="button" onClick={() => setStep(0)} className="text-[12px] text-[#8FA896]">← Back</button>
             <button type="button" onClick={() => goNext(1)}
-              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
-              Next →
-            </button>
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">Next →</button>
           </div>
         </div>
       )}
@@ -207,29 +221,26 @@ function AddShowCard({
       {step === 2 && (
         <div>
           <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">How did your voice feel?</p>
-          <p className="text-[11px] text-[#8FA896] mb-3">Pick what resonates.</p>
+          <p className="text-[11px] text-[#8FA896] mb-3">Select all that apply.</p>
           <div className="flex flex-wrap gap-2">
             {FEELINGS.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setShow((s) => ({ ...s, feeling: f }))}
+              <button key={f} type="button" onClick={() => toggleFeeling(f)}
                 className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium border transition active:scale-95 ${
-                  show.feeling === f
+                  show.feelings.includes(f)
                     ? "bg-[#2C5F3F] text-white border-[#2C5F3F]"
                     : "bg-white text-[#5A7A65] border-[rgba(44,95,63,0.2)] hover:bg-[#EAF0EB]"
-                }`}
-              >
-                {f}
+                }`}>
+                {show.feelings.includes(f) ? "✓ " : ""}{f}
               </button>
             ))}
           </div>
+          {show.feelings.length > 0 && (
+            <p className="text-[11px] text-[#2C5F3F] mt-2">{show.feelings.length} selected</p>
+          )}
           <div className="flex justify-between items-center mt-4">
             <button type="button" onClick={() => setStep(1)} className="text-[12px] text-[#8FA896]">← Back</button>
             <button type="button" onClick={() => goNext(2)}
-              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
-              Next →
-            </button>
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">Next →</button>
           </div>
         </div>
       )}
@@ -240,17 +251,14 @@ function AddShowCard({
           <p className="text-[11px] text-[#8FA896] mb-3">Optional — but valuable over time.</p>
           <textarea
             className="w-full bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)] resize-none"
-            rows={3}
-            placeholder="e.g. Voice felt warm, high notes came easier..."
+            rows={3} placeholder="e.g. Voice felt warm, high notes came easier..."
             value={show.note}
             onChange={(e) => setShow((s) => ({ ...s, note: e.target.value }))}
           />
           <div className="flex justify-between items-center mt-4">
             <button type="button" onClick={() => setStep(2)} className="text-[12px] text-[#8FA896]">← Back</button>
-            <button type="button" onClick={save}
-              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
-              Save show ✓
-            </button>
+            <button type="button" onClick={() => onSave({ ...show, done: true })}
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">Save show ✓</button>
           </div>
         </div>
       )}
@@ -260,39 +268,104 @@ function AddShowCard({
 
 export default function TodayShowsCard() {
   const [shows, setShows] = useState<(ShowEntry | null)[]>([null, null, null]);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
-  const saveShow = (idx: number, show: ShowEntry) => {
-    setShows((prev) => prev.map((s, i) => (i === idx ? show : s)));
+  useEffect(() => {
+    async function load() {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const data = await getShows(today);
+        if (data && data.shows.length > 0) {
+          const loaded = data.shows.map((s) => ({
+            ...s,
+            feelings: (s as any).feelings ?? ((s as any).feeling ? [(s as any).feeling] : []),
+            done: true,
+          } as ShowEntry));
+          const padded: (ShowEntry | null)[] = [null, null, null];
+          loaded.forEach((s, i) => { if (i < 3) padded[i] = s; });
+          setShows(padded);
+          setSavedAt(data.savedAt);
+        }
+      } catch (e) {
+        console.error("Error loading shows:", e);
+      } finally {
+        setLoaded(true);
+      }
+    }
+    load();
+  }, []);
+
+  const persistShows = async (updated: (ShowEntry | null)[]) => {
+    const done = updated.filter((s): s is ShowEntry => s?.done === true);
+    if (done.length === 0) return;
+    setSaving(true);
+    try {
+      await saveShows(done.map((s) => ({
+        name: s.name, time: s.time, ratings: s.ratings,
+        feeling: s.feelings[0] ?? null, feelings: s.feelings, note: s.note,
+      })));
+      setSavedAt(new Date().toISOString());
+    } catch (e) {
+      console.error("Error saving shows:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = async (idx: number, show: ShowEntry) => {
+    const updated = shows.map((s, i) => (i === idx ? show : s));
+    setShows(updated);
+    setEditingIdx(null);
+    await persistShows(updated);
   };
 
   const anyDone = shows.some((s) => s?.done);
+  const formatSavedAt = (iso: string) =>
+    new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
     <div className="mx-4 bg-white rounded-3xl p-5 border border-[rgba(44,95,63,0.08)] shadow-sm">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-[16px] font-semibold text-[#1C2B22]" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-[16px] font-semibold text-[#1C2B22]"
+            style={{ fontFamily: "'Playfair Display', serif" }}>
             Tonight's performances
           </h2>
-          <p className="text-[12px] text-[#8FA896] mt-0.5">
-            Log up to 3 shows you have tonight.
-          </p>
+          <p className="text-[12px] text-[#8FA896] mt-0.5">Log up to 3 shows · tap ✏️ to edit</p>
         </div>
+        {saving && <span className="text-[11px] text-[#8FA896] animate-pulse">Saving...</span>}
       </div>
 
-      <div className="space-y-3">
-        {shows.map((show, i) =>
-          show?.done ? (
-            <EntryView key={i} show={show} />
-          ) : (
-            <AddShowCard key={i} index={i} onSave={(s) => saveShow(i, s)} />
-          )
-        )}
-      </div>
+      {!loaded ? (
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => <div key={i} className="h-11 rounded-2xl bg-[#F5F2EC] animate-pulse" />)}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {shows.map((show, i) => {
+            if (editingIdx === i) {
+              return <ShowForm key={i} index={i} initial={show ?? emptyShow()}
+                onSave={(s) => handleSave(i, s)} onCancel={() => setEditingIdx(null)} />;
+            }
+            if (show?.done) {
+              return <EntryView key={i} show={show} onEdit={() => setEditingIdx(i)} />;
+            }
+            return (
+              <button key={i} type="button" onClick={() => setEditingIdx(i)}
+                className="w-full h-11 rounded-2xl border border-dashed border-[rgba(44,95,63,0.25)] bg-transparent flex items-center justify-center gap-2 text-[13px] text-[#8FA896] font-medium active:scale-[0.98] transition-transform hover:bg-[#F5F2EC]">
+                <span className="text-base leading-none">+</span> Add show {i + 1}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {anyDone && (
+      {anyDone && !saving && (
         <p className="text-center text-[11px] text-[#8FA896] mt-4 pt-3 border-t border-[rgba(44,95,63,0.07)]">
-          ✓ Auto-saves at end of day
+          {savedAt ? `✓ Saved at ${formatSavedAt(savedAt)}` : "✓ Saved to journal"}
         </p>
       )}
     </div>

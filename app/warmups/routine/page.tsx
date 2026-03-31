@@ -3,198 +3,179 @@
 import { useEffect, useState } from "react";
 import { AUDIO_LIBRARY } from "@/components/data/audioLibrary";
 
-const PERSONAL_ROUTINE_LOCALSTORAGE_KEY = "personalRoutineItems";
+const KEY = "personalRoutineItems";
 
 export default function WarmupsRoutinePage() {
-  // Ahora guardamos IDs
-  const [routineAudioIds, setRoutineAudioIds] = useState<string[]>([]);
+  const [routineIds, setRoutineIds] = useState<string[]>([]);
 
-  const addToRoutine = (audioId: string) => {
-    setRoutineAudioIds((prev) => [...prev, audioId]);
-  };
-
-  const removeFromRoutine = (indexToRemove: number) => {
-    setRoutineAudioIds((prev) => prev.filter((_, i) => i !== indexToRemove));
-  };
-
-  const saveRoutine = () => {
-    localStorage.setItem(
-      PERSONAL_ROUTINE_LOCALSTORAGE_KEY,
-      JSON.stringify(routineAudioIds)
-    );
-    console.log("Saved IDs:", routineAudioIds);
-  };
-
-  // LEER al iniciar
   useEffect(() => {
-    const savedAsString = localStorage.getItem(PERSONAL_ROUTINE_LOCALSTORAGE_KEY);
-
-    if (savedAsString) {
-      const parsed = JSON.parse(savedAsString);
-      if (Array.isArray(parsed)) {
-        setRoutineAudioIds(parsed);
-      } else {
-        setRoutineAudioIds([]);
-      }
+    const saved = localStorage.getItem(KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setRoutineIds(parsed);
+      } catch {}
     }
   }, []);
 
+  const add = (id: string) => setRoutineIds((p) => [...p, id]);
+
+  const remove = (idx: number) =>
+    setRoutineIds((p) => p.filter((_, i) => i !== idx));
+
+  const save = () => localStorage.setItem(KEY, JSON.stringify(routineIds));
+
+  const totalSec = routineIds.reduce((acc, id) => {
+    const item = AUDIO_LIBRARY.find((a) => a.id === id);
+    return acc + (item?.durationSec ?? 0);
+  }, 0);
+  const totalMin = Math.round(totalSec / 60);
+
   return (
-  <main className="min-h-screen bg-[#DFF7E3] text-neutral-900">
-    {/* Safe-area + padding mobile */}
-    <div className="mx-auto max-w-4xl px-5 py-8 sm:px-6">
-      <div
-        className="px-[max(0px,env(safe-area-inset-left))] pr-[max(0px,env(safe-area-inset-right))]"
-      >
+    <main className="min-h-screen bg-[#F5F2EC]">
+      <div className="mx-auto max-w-md px-4 pt-2 pb-28">
+
         {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-emerald-950/90">
-              Routine Builder
+            <h1
+              className="text-[28px] text-[#1C2B22] leading-tight mb-1"
+              style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontWeight: 400 }}
+            >
+              Routine builder
             </h1>
-            <p className="mt-2 text-sm text-emerald-900/80">
-              Pick from the library and build today’s routine.
+            <p className="text-[13px] text-[#8FA896]">
+              Pick exercises and build your warmup.
             </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-3 py-1 text-xs font-black text-emerald-900">
-              🎤 Voice warm-up
-            </span>
-            <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
-              {routineAudioIds.length} selected
-            </span>
+          <div className="text-right shrink-0">
+            <p className="text-[10px] font-bold tracking-widest uppercase text-[#8FA896]">Selected</p>
+            <p className="text-[20px] font-bold text-[#2C5F3F]">{routineIds.length}</p>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="mt-8 grid gap-4 lg:grid-cols-2">
-          {/* Library */}
-          <section className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-extrabold text-emerald-950/90">
-                  Audio Library
-                </h2>
-                <p className="mt-1 text-sm text-emerald-900/70">
-                  Tap “Add” to include an exercise.
+        {/* Your Routine */}
+        <div className="mb-6">
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3 px-1">
+            Your routine {totalMin > 0 && `· ~${totalMin} min`}
+          </p>
+          <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm overflow-hidden">
+            {routineIds.length === 0 ? (
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-[#EAF0EB] flex items-center justify-center text-xl mx-auto mb-3">
+                  🎤
+                </div>
+                <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">
+                  No exercises yet
                 </p>
-              </div>
-
-              <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80">
-                {AUDIO_LIBRARY.length} items
-              </span>
-            </div>
-
-            <ul className="mt-4 space-y-3">
-              {AUDIO_LIBRARY.map((audioItem) => (
-                <li
-                  key={audioItem.id}
-                  className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-3 shadow-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-extrabold text-emerald-950/90">
-                      {audioItem.name}
-                    </p>
-                    <p className="mt-0.5 text-xs text-emerald-900/70">
-                      Add to your routine
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => addToRoutine(audioItem.id)}
-                    className="inline-flex h-10 items-center justify-center rounded-full bg-emerald-600 px-4 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.98]"
-                  >
-                    Add
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* Routine */}
-          <section className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-extrabold text-emerald-950/90">
-                  Your Routine
-                </h2>
-                <p className="mt-1 text-sm text-emerald-900/70">
-                  Your saved order will be used for sessions.
-                </p>
-              </div>
-
-              <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
-                {routineAudioIds.length} items
-              </span>
-            </div>
-
-            {routineAudioIds.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4">
-                <p className="text-sm font-bold text-emerald-900">
-                  No items in your routine yet.
-                </p>
-                <p className="mt-1 text-sm text-emerald-900/70">
-                  Add exercises from the library to build your warm-up.
+                <p className="text-[12px] text-[#8FA896]">
+                  Add from the library below.
                 </p>
               </div>
             ) : (
-              <ul className="mt-4 space-y-3">
-                {routineAudioIds.map((audioId, index) => {
-                  const audioItem = AUDIO_LIBRARY.find((a) => a.id === audioId);
-
+              <div>
+                {routineIds.map((id, idx) => {
+                  const item = AUDIO_LIBRARY.find((a) => a.id === id);
                   return (
-                    <li
-                      key={`${audioId}-${index}`}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-white px-4 py-3 shadow-sm"
+                    <div
+                      key={`${id}-${idx}`}
+                      className={`flex items-center justify-between px-5 py-3.5 ${
+                        idx < routineIds.length - 1
+                          ? "border-b border-[rgba(44,95,63,0.06)]"
+                          : ""
+                      }`}
                     >
-                      <div className="min-w-0">
-                        <p className="truncate font-extrabold text-emerald-950/90">
-                          <span className="mr-2 inline-flex h-7 items-center rounded-full bg-emerald-100 px-2 text-xs font-black text-emerald-900">
-                            {index + 1}
-                          </span>
-                          {audioItem ? audioItem.name : audioId}
-                        </p>
-                        <p className="mt-0.5 text-xs text-emerald-900/70">
-                          In your routine
-                        </p>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-6 h-6 rounded-full bg-[#EAF0EB] text-[10px] font-bold text-[#2C5F3F] flex items-center justify-center shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold text-[#1C2B22] truncate">
+                            {item ? item.name : id}
+                          </p>
+                          {item && (
+                            <p className="text-[10px] text-[#8FA896]">
+                              {item.durationSec}s · {item.level}
+                            </p>
+                          )}
+                        </div>
                       </div>
-
                       <button
-                        onClick={() => removeFromRoutine(index)}
-                        className="inline-flex h-10 items-center justify-center rounded-full border border-emerald-900/15 bg-rose-50 px-4 text-sm font-extrabold text-rose-700 hover:bg-rose-100 active:scale-[0.98]"
+                        onClick={() => remove(idx)}
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[#B5C4B9] hover:text-rose-500 hover:bg-rose-50 transition-colors shrink-0 ml-3"
                       >
-                        Remove
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        </svg>
                       </button>
-                    </li>
+                    </div>
                   );
                 })}
-              </ul>
+
+                {/* Save + clear */}
+                <div className="flex gap-2 p-4 border-t border-[rgba(44,95,63,0.06)]">
+                  <button
+                    onClick={save}
+                    className="flex-1 h-10 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95 transition-transform"
+                  >
+                    Save routine
+                  </button>
+                  <button
+                    onClick={() => setRoutineIds([])}
+                    className="h-10 px-4 rounded-full border border-[rgba(44,95,63,0.2)] text-[12px] font-medium text-[#8FA896] hover:bg-[#F5F2EC] transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
             )}
-
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-              <button
-                onClick={saveRoutine}
-                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.99]"
-              >
-                Save routine
-              </button>
-
-              <button
-                onClick={() => setRoutineAudioIds([])}
-                className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50 active:scale-[0.99]"
-              >
-                Clear all
-              </button>
-            </div>
-
-            <p className="mt-3 text-xs text-emerald-900/60">
-              Tip: keep it short (3–6 items) for consistency.
-            </p>
-          </section>
+          </div>
         </div>
+
+        {/* Library */}
+        <div>
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3 px-1">
+            Audio library · {AUDIO_LIBRARY.length} exercises
+          </p>
+          <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm overflow-hidden">
+            {AUDIO_LIBRARY.map((item, idx) => (
+              <div
+                key={item.id}
+                className={`flex items-center justify-between px-5 py-3.5 ${
+                  idx < AUDIO_LIBRARY.length - 1
+                    ? "border-b border-[rgba(44,95,63,0.06)]"
+                    : ""
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[#1C2B22] truncate">
+                    {item.name}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-[#8FA896]">{item.durationSec}s</span>
+                    <span className="w-1 h-1 rounded-full bg-[#D5E0D8]" />
+                    <span className="text-[10px] text-[#8FA896] capitalize">{item.type}</span>
+                    <span className="w-1 h-1 rounded-full bg-[#D5E0D8]" />
+                    <span className={`text-[10px] font-medium capitalize ${
+                      item.level === "easy" ? "text-[#3D7A55]" :
+                      item.level === "medium" ? "text-amber-600" : "text-rose-500"
+                    }`}>{item.level}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => add(item.id)}
+                  className="w-8 h-8 rounded-full bg-[#EAF0EB] border border-[rgba(44,95,63,0.15)] flex items-center justify-center text-[#2C5F3F] hover:bg-[#2C5F3F] hover:text-white transition-all active:scale-95 shrink-0 ml-3"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M6 1V11M1 6H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
-    </div>
-  </main>
-);
+    </main>
+  );
 }

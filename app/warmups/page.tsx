@@ -11,276 +11,220 @@ type Routine = {
   kind: "personal" | "preset";
 };
 
+const ROUTINES: Routine[] = [
+  {
+    id: "personal",
+    kind: "personal",
+    name: "Your routine",
+    description: "Your personalized warmup routine.",
+    itemsPreview: ["Lip trills", "Breath control", "Sirens"],
+  },
+  {
+    id: "high-range",
+    kind: "preset",
+    name: "High Range Routine",
+    description: "Access top range with support and control.",
+    itemsPreview: ["Sirens (up)", "High notes support", "Light resonance"],
+  },
+  {
+    id: "resistance",
+    kind: "preset",
+    name: "Resistance Routine",
+    description: "Build stamina and consistency across sets.",
+    itemsPreview: ["Sustains", "Intervals", "Short rests"],
+  },
+  {
+    id: "relax-reset",
+    kind: "preset",
+    name: "Relax & Reset",
+    description: "Gentle recovery routine for tired days.",
+    itemsPreview: ["Breath low", "Jaw/neck relax", "Soft hum"],
+  },
+];
+
 export default function WarmupsHomePage() {
-  const routines: Routine[] = [
-    {
-      id: "personal",
-      kind: "personal",
-      name: "Your routine",
-      description: "Your personalized warmup routine.",
-      itemsPreview: ["Lip trills", "Breath control", "Sirens"],
-    },
-    {
-      id: "high-range",
-      kind: "preset",
-      name: "High Range Routine",
-      description: "Access top range with support and control.",
-      itemsPreview: ["Sirens (up)", "High notes support", "Light resonance"],
-    },
-    {
-      id: "resistance",
-      kind: "preset",
-      name: "Resistance Routine",
-      description: "Build stamina and consistency across sets.",
-      itemsPreview: ["Sustains", "Intervals", "Short rests"],
-    },
-    {
-      id: "relax-reset",
-      kind: "preset",
-      name: "Relax & Reset",
-      description: "Gentle recovery routine for tired days.",
-      itemsPreview: ["Breath low", "Jaw/neck relax", "Soft hum"],
-    },
-  ];
+  const [selectedId, setSelectedId] = useState("personal");
+  const [loaded, setLoaded] = useState(false);
 
- const [selectedRoutineId, setSelectedRoutineId] = useState<string>("personal");
-  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState<boolean>(false);
+  useEffect(() => {
+    const saved = localStorage.getItem("selectedRoutineId");
+    if (saved) setSelectedId(saved);
+    setLoaded(true);
+  }, []);
 
-  // 1) LEER: corre una sola vez al iniciar
-useEffect(() => {
-  const savedRoutineId = localStorage.getItem("selectedRoutineId");
+  useEffect(() => {
+    if (!loaded) return;
+    localStorage.setItem("selectedRoutineId", selectedId);
+  }, [selectedId, loaded]);
 
-  if (savedRoutineId) {
-    setSelectedRoutineId(savedRoutineId);
-  } else {
-    setSelectedRoutineId("personal");
-  }
-
-  setHasLoadedFromStorage(true);
-}, []);
-
-// 2) GUARDAR: solo después de haber leído
-useEffect(() => {
-  if (!hasLoadedFromStorage) {
-    return;
-  }
-
-  localStorage.setItem("selectedRoutineId", selectedRoutineId);
-}, [selectedRoutineId, hasLoadedFromStorage]);
-
-  const selectedRoutine = useMemo(
-    () => routines.find((r) => r.id === selectedRoutineId) ?? routines[0],
-    [selectedRoutineId]
+  const selected = useMemo(
+    () => ROUTINES.find((r) => r.id === selectedId) ?? ROUTINES[0],
+    [selectedId]
   );
 
-  const personalRoutine = useMemo(
-    () => routines.find((r) => r.id === "personal")!,
-    []
-  );
-
-  const presetRoutines = useMemo(
-    () => routines.filter((r) => r.kind === "preset"),
-    []
-  );
-
-  const isSelectedPersonal = selectedRoutineId === "personal";
+  const presets = ROUTINES.filter((r) => r.kind === "preset");
+  const personal = ROUTINES.find((r) => r.id === "personal")!;
 
   return (
-  <main className="min-h-screen bg-[#DFF7E3] text-emerald-900">
-    <div className="mx-auto max-w-4xl px-4 py-2">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl text-emerald-900 font-black tracking-tight">
+    <main className="min-h-screen bg-[#F5F2EC]">
+      <div className="mx-auto max-w-md px-4 pt-2 pb-28">
+
+        {/* Header */}
+        <div className="mb-6">
+          <h1
+            className="text-[28px] text-[#1C2B22] leading-tight mb-1"
+            style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontWeight: 400 }}
+          >
             Warmups
           </h1>
-          <p className="mt-2 text-sm text-neutral-700">
-            Choose a routine. Your selected routine is shown first.
+          <p className="text-[13px] text-[#8FA896]">
+            Choose a routine. Your selected one starts first.
           </p>
         </div>
-      </div>
 
-      {/* Selected routine */}
-      <section className="mt-6 rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-xl font-extrabold text-neutral-900">
-              <span className="mr-2 inline-flex h-7 items-center rounded-full bg-emerald-100 px-3 text-xs font-black text-emerald-900">
-                SELECTED
+        {/* Selected routine hero */}
+        <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm p-5 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-bold tracking-widest uppercase text-[#2C5F3F] bg-[#EAF0EB] px-2.5 py-1 rounded-full border border-[rgba(44,95,63,0.15)]">
+              Selected
+            </span>
+          </div>
+          <h2
+            className="text-[20px] text-[#1C2B22] mb-1"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            {selected.name}
+          </h2>
+          <p className="text-[13px] text-[#8FA896] mb-4">{selected.description}</p>
+
+          <div className="flex flex-wrap gap-2 mb-5">
+            {selected.itemsPreview.map((item) => (
+              <span
+                key={item}
+                className="px-3 py-1 rounded-full text-[11px] font-medium bg-[#F5F2EC] text-[#5A7A65] border border-[rgba(44,95,63,0.1)]"
+              >
+                {item}
               </span>
-              {selectedRoutine.name}
-            </h2>
-
-            <p className="mt-2 text-sm text-neutral-600">
-              {selectedRoutine.description}
-            </p>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              {selectedRoutine.itemsPreview.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
+            ))}
           </div>
 
-          <div className="flex flex-row flex-wrap gap-2 sm:flex-col sm:items-end">
+          <div className="flex gap-2">
             <Link
-              href={`/session?routine=${selectedRoutine.id}`}
-              className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.99]"
+              href={`/session?routine=${selected.id}`}
+              className="flex-1 h-11 rounded-full bg-[#2C5F3F] text-white text-[13px] font-semibold flex items-center justify-center active:scale-[0.98] transition-transform"
             >
-              Start warmup
+              Start warmup →
             </Link>
-
-            {isSelectedPersonal && (
+            {selected.id === "personal" && (
               <Link
                 href="/warmups/routine"
-                className="inline-flex items-center justify-center rounded-full border border-emerald-900/15 bg-emerald-50 px-4 py-2 text-sm font-extrabold text-emerald-900 hover:bg-emerald-100"
+                className="h-11 px-5 rounded-full border border-[rgba(44,95,63,0.2)] text-[13px] font-medium text-[#5A7A65] flex items-center justify-center hover:bg-[#F5F2EC] active:scale-[0.98] transition-all"
               >
-                Edit routine
+                Edit
               </Link>
             )}
           </div>
         </div>
-      </section>
 
-      {/* Presets */}
-      <section className="mt-10">
-        <h2 className="text-lg font-extrabold text-emerald-900">
-          Preset routines
-        </h2>
-        <p className="mt-1 text-sm text-neutral-700">
-          Developer-made warmups you can try.
-        </p>
-
-        <div className="mt-4 space-y-3">
-          {presetRoutines.map((r) => {
-            const isSelected = r.id === selectedRoutineId;
-
-            return (
-              <div
-                key={r.id}
-                className={[
-                  "rounded-3xl border p-6 shadow-sm",
-                  isSelected
-                    ? "border-emerald-600/40 bg-emerald-50 ring-2 ring-emerald-200"
-                    : "border-emerald-900/10 bg-white",
-                ].join(" ")}
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h3 className="text-lg font-extrabold text-neutral-900">
-                      {r.name}
-                      {isSelected && (
-                        <span className="ml-2 rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-black text-emerald-950">
-                          ✓ Selected
-                        </span>
-                      )}
-                    </h3>
-
-                    <p className="mt-2 text-sm text-neutral-600">
-                      {r.description}
-                    </p>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {r.itemsPreview.map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setSelectedRoutineId(r.id)}
-                    className={[
-                      "inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-extrabold",
-                      isSelected
-                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                        : "border border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
-                    ].join(" ")}
-                  >
-                    {isSelected ? "Selected" : "Select"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+        {/* Your personal routine */}
+        <div className="mb-3">
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3 px-1">
+            Your routine
+          </p>
+          <RoutineCard
+            routine={personal}
+            isSelected={selectedId === "personal"}
+            onSelect={() => setSelectedId("personal")}
+            editHref="/warmups/routine"
+          />
         </div>
-      </section>
 
-      {/* Your routine always visible */}
-      <section className="mt-10">
-        <h2 className="text-lg font-extrabold text-neutral-900">Your routine</h2>
-        <p className="mt-1 text-sm text-neutral-700">
-          Your editable personalized routine.
-        </p>
-
-        <div
-          className={[
-            "mt-4 rounded-3xl border p-6 shadow-sm",
-            isSelectedPersonal
-              ? "border-emerald-600/40 bg-emerald-50 ring-2 ring-emerald-200"
-              : "border-emerald-900/10 bg-white",
-          ].join(" ")}
-        >
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h3 className="text-lg font-extrabold text-neutral-900">
-                {personalRoutine.name}
-                {isSelectedPersonal && (
-                  <span className="ml-2 rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-black text-emerald-950">
-                    ✓ Selected
-                  </span>
-                )}
-              </h3>
-
-              <p className="mt-2 text-sm text-neutral-600">
-                {personalRoutine.description}
-              </p>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {personalRoutine.itemsPreview.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-row flex-wrap gap-2 sm:flex-col sm:items-end">
-              <button
-                onClick={() => setSelectedRoutineId("personal")}
-                className={[
-                  "inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-extrabold",
-                  isSelectedPersonal
-                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                    : "border border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
-                ].join(" ")}
-              >
-                {isSelectedPersonal ? "Selected" : "Select"}
-              </button>
-
-              <Link
-                href="/warmups/routine"
-                className="inline-flex h-10 items-center justify-center rounded-full border border-emerald-900/15 bg-emerald-50 px-4 text-sm font-extrabold text-emerald-900 hover:bg-emerald-100"
-              >
-                Edit routine
-              </Link>
-            </div>
+        {/* Preset routines */}
+        <div>
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3 mt-6 px-1">
+            Preset routines
+          </p>
+          <div className="space-y-3">
+            {presets.map((r) => (
+              <RoutineCard
+                key={r.id}
+                routine={r}
+                isSelected={selectedId === r.id}
+                onSelect={() => setSelectedId(r.id)}
+              />
+            ))}
           </div>
         </div>
-      </section>
+
+      </div>
+    </main>
+  );
+}
+
+function RoutineCard({
+  routine,
+  isSelected,
+  onSelect,
+  editHref,
+}: {
+  routine: Routine;
+  isSelected: boolean;
+  onSelect: () => void;
+  editHref?: string;
+}) {
+  return (
+    <div
+      className={`bg-white rounded-2xl border p-4 transition-all ${
+        isSelected
+          ? "border-[rgba(44,95,63,0.3)] ring-2 ring-[rgba(44,95,63,0.08)]"
+          : "border-[rgba(44,95,63,0.08)]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="text-[14px] font-semibold text-[#1C2B22]">{routine.name}</p>
+            {isSelected && (
+              <span className="text-[10px] font-bold text-[#2C5F3F] bg-[#EAF0EB] px-2 py-0.5 rounded-full border border-[rgba(44,95,63,0.15)]">
+                ✓ Selected
+              </span>
+            )}
+          </div>
+          <p className="text-[12px] text-[#8FA896]">{routine.description}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {routine.itemsPreview.map((item) => (
+          <span
+            key={item}
+            className="px-2.5 py-1 rounded-full text-[10px] font-medium bg-[#F5F2EC] text-[#5A7A65] border border-[rgba(44,95,63,0.08)]"
+          >
+            {item}
+          </span>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={onSelect}
+          className={`flex-1 h-9 rounded-full text-[12px] font-semibold transition-all active:scale-95 ${
+            isSelected
+              ? "bg-[#2C5F3F] text-white"
+              : "border border-[rgba(44,95,63,0.2)] text-[#5A7A65] hover:bg-[#F5F2EC]"
+          }`}
+        >
+          {isSelected ? "Selected" : "Select"}
+        </button>
+        {editHref && (
+          <Link
+            href={editHref}
+            className="h-9 px-4 rounded-full border border-[rgba(44,95,63,0.2)] text-[12px] font-medium text-[#5A7A65] flex items-center justify-center hover:bg-[#F5F2EC] transition-all"
+          >
+            Edit
+          </Link>
+        )}
+      </div>
     </div>
-  </main>
-);
+  );
 }

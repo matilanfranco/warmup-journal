@@ -3,6 +3,8 @@ import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
+import { AuthProvider } from "@/lib/AuthContext";
+import AuthGuard from "@/components/AuthGuard";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -30,11 +32,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} ${playfair.variable}`}>
       <body className="min-h-screen bg-[#F5F2EC] text-[#1C2B22] overflow-x-hidden font-sans">
-        <Header />
-        <div className="mx-auto max-w-md pb-24">
-          {children}
-        </div>
-        <BottomNav />
+        <AuthProvider>
+          <AuthGuard>
+            <Header />
+            <div className="mx-auto max-w-md pb-24">
+              {children}
+            </div>
+            <BottomNav />
+          </AuthGuard>
+        </AuthProvider>
       </body>
     </html>
   );
