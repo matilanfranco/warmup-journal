@@ -1,56 +1,38 @@
 import RoutineCard from "@/components/dashboard/RoutineCard";
 import TodayShowsCard from "@/components/dashboard/TodayShowsCard";
-import QuickCheckCard from "@/components/dashboard/QuickCheckCard";
+import CoolDownCard from "@/components/dashboard/CoolDownCard";
 
 export default function HomePage() {
   return (
-  <main className="mx-auto max-w-3xl space-y-6">
-    <div className="mx-auto max-w-3xl px-4 py-2">
-      {/* Header */}
-      <h1 className="text-3xl font-black tracking-tight text-emerald-900">
-        Dashboard
-      </h1>
-      <p className="mt-1 text-sm text-neutral-700">Today’s overview</p>
+    <main className="mx-auto max-w-2xl">
+      <div className="px-4 pt-2 pb-16 space-y-10">
 
-      {/* Sections */}
-      <div className="mt-10 space-y-10">
-
-        {/* Warmup */}
         <section>
-          <h2 className="mb-3 text-lg font-extrabold text-emerald-900">
+          <p className="text-[10px] font-black tracking-[3px] uppercase text-emerald-600 mb-3">
             🔥 Warmup
-          </h2>
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm border border-emerald-900/10">
+          </p>
+          <div className="rounded-3xl bg-white dark:bg-emerald-950 shadow-sm border border-emerald-900/10 p-5 sm:p-6">
             <RoutineCard />
           </div>
         </section>
 
-        {/* Schedule */}
         <section>
-          <h2 className="mb-3 text-lg font-extrabold text-emerald-900">
-            📅 Schedule
-          </h2>
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm border border-emerald-900/10">
+          <p className="text-[10px] font-black tracking-[3px] uppercase text-emerald-600 mb-3">
+            📅 Performance log
+          </p>
+          <div className="rounded-3xl bg-white dark:bg-emerald-950 shadow-sm border border-emerald-900/10 p-5 sm:p-6">
             <TodayShowsCard />
           </div>
         </section>
 
-        {/* Post show */}
         <section>
-          <h2 className="mb-3 text-lg font-extrabold text-emerald-900">
-            📝 Post-show
-          </h2>
-
-          <div className="rounded-3xl bg-white p-6 shadow-sm border border-emerald-900/10">
-            <QuickCheckCard />
-          </div>
+          <p className="text-[10px] font-black tracking-[3px] uppercase text-emerald-600 mb-3">
+            🌙 Cool down
+          </p>
+          <CoolDownCard />
         </section>
 
       </div>
-
-    </div>
-  </main>
-);
+    </main>
+  );
 }

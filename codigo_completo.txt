@@ -1,0 +1,1750 @@
+// === app/about/page.tsx ===
+export default function AboutPage() {
+  return (
+    <main>
+      <h1 className="text-3xl font-bold">About</h1>
+      <p>Esta es la página About.</p>
+    </main>
+  );
+}                 
+// === app/layout.tsx ===
+import type { Metadata } from "next";
+import "./globals.css";
+import Header from "../components/Header";
+import Footer from "../components/Footer";
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="min-h-screen bg-[#DFF7E3] text-neutral-900 overflow-x-hidden">
+        <Header />
+       <div className="mx-auto max-w-4xl px-2 py-6 sm:px-6">
+        {children}
+      </div>
+        <Footer />
+      </body>
+    </html>
+  );
+}
+// === app/history/page.tsx ===
+export default function HistoryPage() {
+  return (
+    <main>
+      <h1 className="text-3xl font-semibold">History</h1>
+      <p className="mt-2 text-sm opacity-70">
+        Placeholder. Acá después van calendario y estadísticas.
+      </p>
+    </main>
+  );
+}
+// === app/page.tsx ===
+import RoutineCard from "@/components/dashboard/RoutineCard";
+import TodayShowsCard from "@/components/dashboard/TodayShowsCard";
+import QuickCheckCard from "@/components/dashboard/QuickCheckCard";
+
+export default function HomePage() {
+  return (
+  <main className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl px-4 py-2">
+      {/* Header */}
+      <h1 className="text-3xl font-black tracking-tight text-emerald-900">
+        Dashboard
+      </h1>
+      <p className="mt-1 text-sm text-neutral-700">Today’s overview</p>
+
+      {/* Sections */}
+      <div className="mt-10 space-y-10">
+
+        {/* Warmup */}
+        <section>
+          <h2 className="mb-3 text-lg font-extrabold text-emerald-900">
+            🔥 Warmup
+          </h2>
+
+          <div className="rounded-3xl bg-white p-6 shadow-sm border border-emerald-900/10">
+            <RoutineCard />
+          </div>
+        </section>
+
+        {/* Schedule */}
+        <section>
+          <h2 className="mb-3 text-lg font-extrabold text-emerald-900">
+            📅 Schedule
+          </h2>
+
+          <div className="rounded-3xl bg-white p-6 shadow-sm border border-emerald-900/10">
+            <TodayShowsCard />
+          </div>
+        </section>
+
+        {/* Post show */}
+        <section>
+          <h2 className="mb-3 text-lg font-extrabold text-emerald-900">
+            📝 Post-show
+          </h2>
+
+          <div className="rounded-3xl bg-white p-6 shadow-sm border border-emerald-900/10">
+            <QuickCheckCard />
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+  </main>
+);
+}
+// === app/warmups/routine/page.tsx ===
+"use client";
+
+import { useEffect, useState } from "react";
+import { AUDIO_LIBRARY } from "@/components/data/audioLibrary";
+
+const PERSONAL_ROUTINE_LOCALSTORAGE_KEY = "personalRoutineItems";
+
+export default function WarmupsRoutinePage() {
+  // Ahora guardamos IDs
+  const [routineAudioIds, setRoutineAudioIds] = useState<string[]>([]);
+
+  const addToRoutine = (audioId: string) => {
+    setRoutineAudioIds((prev) => [...prev, audioId]);
+  };
+
+  const removeFromRoutine = (indexToRemove: number) => {
+    setRoutineAudioIds((prev) => prev.filter((_, i) => i !== indexToRemove));
+  };
+
+  const saveRoutine = () => {
+    localStorage.setItem(
+      PERSONAL_ROUTINE_LOCALSTORAGE_KEY,
+      JSON.stringify(routineAudioIds)
+    );
+    console.log("Saved IDs:", routineAudioIds);
+  };
+
+  // LEER al iniciar
+  useEffect(() => {
+    const savedAsString = localStorage.getItem(PERSONAL_ROUTINE_LOCALSTORAGE_KEY);
+
+    if (savedAsString) {
+      const parsed = JSON.parse(savedAsString);
+      if (Array.isArray(parsed)) {
+        setRoutineAudioIds(parsed);
+      } else {
+        setRoutineAudioIds([]);
+      }
+    }
+  }, []);
+
+  return (
+  <main className="min-h-screen bg-[#DFF7E3] text-neutral-900">
+    {/* Safe-area + padding mobile */}
+    <div className="mx-auto max-w-4xl px-5 py-8 sm:px-6">
+      <div
+        className="px-[max(0px,env(safe-area-inset-left))] pr-[max(0px,env(safe-area-inset-right))]"
+      >
+        {/* Header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-emerald-950/90">
+              Routine Builder
+            </h1>
+            <p className="mt-2 text-sm text-emerald-900/80">
+              Pick from the library and build today’s routine.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-3 py-1 text-xs font-black text-emerald-900">
+              🎤 Voice warm-up
+            </span>
+            <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+              {routineAudioIds.length} selected
+            </span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="mt-8 grid gap-4 lg:grid-cols-2">
+          {/* Library */}
+          <section className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-emerald-950/90">
+                  Audio Library
+                </h2>
+                <p className="mt-1 text-sm text-emerald-900/70">
+                  Tap “Add” to include an exercise.
+                </p>
+              </div>
+
+              <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80">
+                {AUDIO_LIBRARY.length} items
+              </span>
+            </div>
+
+            <ul className="mt-4 space-y-3">
+              {AUDIO_LIBRARY.map((audioItem) => (
+                <li
+                  key={audioItem.id}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-3 shadow-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-extrabold text-emerald-950/90">
+                      {audioItem.name}
+                    </p>
+                    <p className="mt-0.5 text-xs text-emerald-900/70">
+                      Add to your routine
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => addToRoutine(audioItem.id)}
+                    className="inline-flex h-10 items-center justify-center rounded-full bg-emerald-600 px-4 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.98]"
+                  >
+                    Add
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* Routine */}
+          <section className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-extrabold text-emerald-950/90">
+                  Your Routine
+                </h2>
+                <p className="mt-1 text-sm text-emerald-900/70">
+                  Your saved order will be used for sessions.
+                </p>
+              </div>
+
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+                {routineAudioIds.length} items
+              </span>
+            </div>
+
+            {routineAudioIds.length === 0 ? (
+              <div className="mt-4 rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4">
+                <p className="text-sm font-bold text-emerald-900">
+                  No items in your routine yet.
+                </p>
+                <p className="mt-1 text-sm text-emerald-900/70">
+                  Add exercises from the library to build your warm-up.
+                </p>
+              </div>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {routineAudioIds.map((audioId, index) => {
+                  const audioItem = AUDIO_LIBRARY.find((a) => a.id === audioId);
+
+                  return (
+                    <li
+                      key={`${audioId}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-white px-4 py-3 shadow-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-extrabold text-emerald-950/90">
+                          <span className="mr-2 inline-flex h-7 items-center rounded-full bg-emerald-100 px-2 text-xs font-black text-emerald-900">
+                            {index + 1}
+                          </span>
+                          {audioItem ? audioItem.name : audioId}
+                        </p>
+                        <p className="mt-0.5 text-xs text-emerald-900/70">
+                          In your routine
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => removeFromRoutine(index)}
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-emerald-900/15 bg-rose-50 px-4 text-sm font-extrabold text-rose-700 hover:bg-rose-100 active:scale-[0.98]"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <button
+                onClick={saveRoutine}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.99]"
+              >
+                Save routine
+              </button>
+
+              <button
+                onClick={() => setRoutineAudioIds([])}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50 active:scale-[0.99]"
+              >
+                Clear all
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-emerald-900/60">
+              Tip: keep it short (3–6 items) for consistency.
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+);
+}
+// === app/warmups/library/page.tsx ===
+export default function WarmupsLibraryPage() {
+  return (
+    <main>
+      <h1 className="text-3xl font-semibold">Warmups Library</h1>
+      <p className="mt-2 text-sm opacity-70">Placeholder.</p>
+    </main>
+  );
+}
+// === app/warmups/page.tsx ===
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+type Routine = {
+  id: string;
+  name: string;
+  description: string;
+  itemsPreview: string[];
+  kind: "personal" | "preset";
+};
+
+export default function WarmupsHomePage() {
+  const routines: Routine[] = [
+    {
+      id: "personal",
+      kind: "personal",
+      name: "Your routine",
+      description: "Your personalized warmup routine.",
+      itemsPreview: ["Lip trills", "Breath control", "Sirens"],
+    },
+    {
+      id: "high-range",
+      kind: "preset",
+      name: "High Range Routine",
+      description: "Access top range with support and control.",
+      itemsPreview: ["Sirens (up)", "High notes support", "Light resonance"],
+    },
+    {
+      id: "resistance",
+      kind: "preset",
+      name: "Resistance Routine",
+      description: "Build stamina and consistency across sets.",
+      itemsPreview: ["Sustains", "Intervals", "Short rests"],
+    },
+    {
+      id: "relax-reset",
+      kind: "preset",
+      name: "Relax & Reset",
+      description: "Gentle recovery routine for tired days.",
+      itemsPreview: ["Breath low", "Jaw/neck relax", "Soft hum"],
+    },
+  ];
+
+ const [selectedRoutineId, setSelectedRoutineId] = useState<string>("personal");
+  const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState<boolean>(false);
+
+  // 1) LEER: corre una sola vez al iniciar
+useEffect(() => {
+  const savedRoutineId = localStorage.getItem("selectedRoutineId");
+
+  if (savedRoutineId) {
+    setSelectedRoutineId(savedRoutineId);
+  } else {
+    setSelectedRoutineId("personal");
+  }
+
+  setHasLoadedFromStorage(true);
+}, []);
+
+// 2) GUARDAR: solo después de haber leído
+useEffect(() => {
+  if (!hasLoadedFromStorage) {
+    return;
+  }
+
+  localStorage.setItem("selectedRoutineId", selectedRoutineId);
+}, [selectedRoutineId, hasLoadedFromStorage]);
+
+  const selectedRoutine = useMemo(
+    () => routines.find((r) => r.id === selectedRoutineId) ?? routines[0],
+    [selectedRoutineId]
+  );
+
+  const personalRoutine = useMemo(
+    () => routines.find((r) => r.id === "personal")!,
+    []
+  );
+
+  const presetRoutines = useMemo(
+    () => routines.filter((r) => r.kind === "preset"),
+    []
+  );
+
+  const isSelectedPersonal = selectedRoutineId === "personal";
+
+  return (
+  <main className="min-h-screen bg-[#DFF7E3] text-emerald-900">
+    <div className="mx-auto max-w-4xl px-4 py-2">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl text-emerald-900 font-black tracking-tight">
+            Warmups
+          </h1>
+          <p className="mt-2 text-sm text-neutral-700">
+            Choose a routine. Your selected routine is shown first.
+          </p>
+        </div>
+      </div>
+
+      {/* Selected routine */}
+      <section className="mt-6 rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-xl font-extrabold text-neutral-900">
+              <span className="mr-2 inline-flex h-7 items-center rounded-full bg-emerald-100 px-3 text-xs font-black text-emerald-900">
+                SELECTED
+              </span>
+              {selectedRoutine.name}
+            </h2>
+
+            <p className="mt-2 text-sm text-neutral-600">
+              {selectedRoutine.description}
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {selectedRoutine.itemsPreview.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-row flex-wrap gap-2 sm:flex-col sm:items-end">
+            <Link
+              href={`/session?routine=${selectedRoutine.id}`}
+              className="inline-flex items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.99]"
+            >
+              Start warmup
+            </Link>
+
+            {isSelectedPersonal && (
+              <Link
+                href="/warmups/routine"
+                className="inline-flex items-center justify-center rounded-full border border-emerald-900/15 bg-emerald-50 px-4 py-2 text-sm font-extrabold text-emerald-900 hover:bg-emerald-100"
+              >
+                Edit routine
+              </Link>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Presets */}
+      <section className="mt-10">
+        <h2 className="text-lg font-extrabold text-emerald-900">
+          Preset routines
+        </h2>
+        <p className="mt-1 text-sm text-neutral-700">
+          Developer-made warmups you can try.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {presetRoutines.map((r) => {
+            const isSelected = r.id === selectedRoutineId;
+
+            return (
+              <div
+                key={r.id}
+                className={[
+                  "rounded-3xl border p-6 shadow-sm",
+                  isSelected
+                    ? "border-emerald-600/40 bg-emerald-50 ring-2 ring-emerald-200"
+                    : "border-emerald-900/10 bg-white",
+                ].join(" ")}
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-neutral-900">
+                      {r.name}
+                      {isSelected && (
+                        <span className="ml-2 rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-black text-emerald-950">
+                          ✓ Selected
+                        </span>
+                      )}
+                    </h3>
+
+                    <p className="mt-2 text-sm text-neutral-600">
+                      {r.description}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {r.itemsPreview.map((item) => (
+                        <span
+                          key={item}
+                          className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedRoutineId(r.id)}
+                    className={[
+                      "inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-extrabold",
+                      isSelected
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                        : "border border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
+                    ].join(" ")}
+                  >
+                    {isSelected ? "Selected" : "Select"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Your routine always visible */}
+      <section className="mt-10">
+        <h2 className="text-lg font-extrabold text-neutral-900">Your routine</h2>
+        <p className="mt-1 text-sm text-neutral-700">
+          Your editable personalized routine.
+        </p>
+
+        <div
+          className={[
+            "mt-4 rounded-3xl border p-6 shadow-sm",
+            isSelectedPersonal
+              ? "border-emerald-600/40 bg-emerald-50 ring-2 ring-emerald-200"
+              : "border-emerald-900/10 bg-white",
+          ].join(" ")}
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="text-lg font-extrabold text-neutral-900">
+                {personalRoutine.name}
+                {isSelectedPersonal && (
+                  <span className="ml-2 rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-black text-emerald-950">
+                    ✓ Selected
+                  </span>
+                )}
+              </h3>
+
+              <p className="mt-2 text-sm text-neutral-600">
+                {personalRoutine.description}
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {personalRoutine.itemsPreview.map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-row flex-wrap gap-2 sm:flex-col sm:items-end">
+              <button
+                onClick={() => setSelectedRoutineId("personal")}
+                className={[
+                  "inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-extrabold",
+                  isSelectedPersonal
+                    ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                    : "border border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
+                ].join(" ")}
+              >
+                {isSelectedPersonal ? "Selected" : "Select"}
+              </button>
+
+              <Link
+                href="/warmups/routine"
+                className="inline-flex h-10 items-center justify-center rounded-full border border-emerald-900/15 bg-emerald-50 px-4 text-sm font-extrabold text-emerald-900 hover:bg-emerald-100"
+              >
+                Edit routine
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+);
+}
+// === app/session/SessionClient.tsx ===
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import SessionRunner from "@/components/session/SessionRunner";
+
+export default function SessionClient() {
+  const searchParams = useSearchParams();
+  const routineId = searchParams.get("routine") ?? "personal";
+
+  const routineLabel =
+    routineId === "personal" ? "Your routine" : routineId.replace(/-/g, " ");
+
+  return (
+    <main className="min-h-screen bg-[#DFF7E3] text-neutral-900">
+      <div className="mx-auto max-w-4xl px-4 py-2">
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-4">
+          <Link
+            href="/"
+            className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-4 py-2 text-sm font-extrabold text-emerald-900 shadow-sm hover:bg-emerald-50"
+          >
+            ← Back to Dashboard
+          </Link>
+
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+            🎤 Session
+          </span>
+        </div>
+
+        {/* Title */}
+        <h1 className="mt-6 text-3xl font-black tracking-tight text-emerald-900">
+          Welcome to today’s warmup
+        </h1>
+
+        <p className="mt-2 text-sm text-neutral-700">
+          Selected routine:{" "}
+          <span className="font-extrabold text-emerald-900">
+            {routineLabel}
+          </span>
+        </p>
+
+        {/* Runner Card */}
+        <section className="mt-6 rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
+          <SessionRunner routineId={routineId} />
+        </section>
+
+        {/* Small hint */}
+        <p className="mt-4 text-xs text-neutral-600">
+          Tip: keep it light and consistent — even 3 minutes counts.
+        </p>
+      </div>
+    </main>
+  );
+}
+// === app/session/page.tsx ===
+import { Suspense } from "react";
+import SessionClient from "./SessionClient";
+
+export default function SessionPage() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading session...</div>}>
+      <SessionClient />
+    </Suspense>
+  );
+}
+// === components/Footer.tsx ===
+export default function Footer() {
+  return (
+    <footer className="mt-12 border-t p-4 text-center text-sm text-gray-500">
+      © {new Date().getFullYear()} Warm-Up Journal
+    </footer>
+  );
+}
+// === components/dashboard/QuickCheckCard.tsx ===
+"use client";
+
+import { useState } from "react";
+
+export default function QuickCheckCard() {
+  const [voiceScore, setVoiceScore] = useState<number | null>(null);
+  const [fatigue, setFatigue] = useState<"low" | "medium" | "high" | null>(null);
+  const [note, setNote] = useState("");
+
+  const saveCheck = () => {
+    const data = { voiceScore, fatigue, note };
+    console.log("Post-show check:", data);
+  };
+
+  const scoreBtnClass = (score: number) =>
+    [
+      "h-11 w-full rounded-2xl border text-sm font-extrabold transition",
+      "active:scale-[0.97]",
+      voiceScore === score
+        ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+        : "border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
+    ].join(" ");
+
+  const fatigueBtnClass = (value: "low" | "medium" | "high") =>
+    [
+      "h-11 w-full rounded-2xl border px-4 text-sm font-extrabold transition",
+      "active:scale-[0.97]",
+      fatigue === value
+        ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+        : "border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
+    ].join(" ");
+
+  const fatigueChip = (value: "low" | "medium" | "high") => {
+    if (value === "low") return "bg-emerald-100 text-emerald-900 border-emerald-900/10";
+    if (value === "medium") return "bg-amber-100 text-amber-900 border-amber-900/10";
+    return "bg-rose-100 text-rose-900 border-rose-900/10";
+  };
+
+  return (
+    <section className="rounded-3xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-lg font-extrabold tracking-tight text-emerald-950/90">
+            📝 Post-show quick check
+          </h2>
+          <p className="mt-1 text-sm text-emerald-900/70">
+            Quick feedback to track patterns over time.
+          </p>
+        </div>
+
+        {fatigue && (
+          <span
+            className={[
+              "shrink-0 inline-flex items-center rounded-full border px-3 py-1 text-xs font-black",
+              fatigueChip(fatigue),
+            ].join(" ")}
+          >
+            {fatigue.toUpperCase()}
+          </span>
+        )}
+      </div>
+
+      {/* Voice score */}
+      <div className="mt-5">
+        <p className="text-sm font-extrabold text-emerald-950/90">
+          How did your voice respond today?
+        </p>
+        <p className="mt-1 text-xs text-emerald-900/60">1 = rough · 5 = amazing</p>
+
+        {/* Mobile: grid 5 cols, Desktop: inline */}
+        <div className="mt-3 grid grid-cols-5 gap-2 sm:flex sm:flex-wrap sm:gap-2">
+          {[1, 2, 3, 4, 5].map((score) => (
+            <button
+              key={score}
+              onClick={() => setVoiceScore(score)}
+              className={scoreBtnClass(score)}
+            >
+              {score}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Fatigue */}
+      <div className="mt-6">
+        <p className="text-sm font-extrabold text-emerald-950/90">Vocal fatigue</p>
+        <p className="mt-1 text-xs text-emerald-900/60">
+          How heavy did it feel after the show?
+        </p>
+
+        {/* Mobile: 3 equal columns */}
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2">
+          <button onClick={() => setFatigue("low")} className={fatigueBtnClass("low")}>
+            Low
+          </button>
+          <button
+            onClick={() => setFatigue("medium")}
+            className={fatigueBtnClass("medium")}
+          >
+            Medium
+          </button>
+          <button
+            onClick={() => setFatigue("high")}
+            className={fatigueBtnClass("high")}
+          >
+            High
+          </button>
+        </div>
+      </div>
+
+      {/* Note */}
+      <div className="mt-6">
+        <p className="text-sm font-extrabold text-emerald-950/90">
+          Notes <span className="text-emerald-900/50">(optional)</span>
+        </p>
+
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          placeholder="e.g. tired on high notes, dry air, poor sleep…"
+          className="mt-3 w-full rounded-2xl border border-emerald-900/15 bg-emerald-50 px-4 py-3 text-sm text-emerald-950/90 placeholder:text-emerald-900/35 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+        <button
+          onClick={saveCheck}
+          className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.99]"
+        >
+          Save check
+        </button>
+
+        <button
+          onClick={() => {
+            setVoiceScore(null);
+            setFatigue(null);
+            setNote("");
+          }}
+          className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50 active:scale-[0.99]"
+        >
+          Clear
+        </button>
+      </div>
+    </section>
+  );
+}
+// === components/dashboard/TodayShowsCard.tsx ===
+"use client";
+
+import { useState } from "react";
+
+export default function TodayShowsCard() {
+  const [showName, setShowName] = useState("");
+  const [shows, setShows] = useState<string[]>([]);
+
+  const addShow = () => {
+    const name = showName.trim();
+    if (!name) return;
+
+    setShows((prev) => [...prev, name]);
+    setShowName("");
+  };
+
+  const removeShow = (index: number) => {
+    setShows((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  return (
+    <section className="rounded-3xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-extrabold tracking-tight text-emerald-950/90 flex items-center gap-2">
+          🎤 Today’s shows
+        </h2>
+      </div>
+
+      {/* Input */}
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          value={showName}
+          onChange={(e) => setShowName(e.target.value)}
+          placeholder="e.g. R&B Classics / Rock Legends / Dance Party"
+          className="h-11 w-full rounded-full border border-emerald-900/15 bg-emerald-50 px-4 text-sm text-emerald-950/90 placeholder:text-emerald-900/35 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+        />
+
+        <button
+          onClick={addShow}
+          className="h-11 w-full shrink-0 rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.98] sm:w-auto"
+        >
+          Add
+        </button>
+      </div>
+
+      {/* Empty */}
+      {shows.length === 0 ? (
+        <div className="mt-4 rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4">
+          <p className="text-sm font-bold text-emerald-900">
+            No shows yet.
+          </p>
+          <p className="mt-1 text-sm text-emerald-900/70">
+            Add your sets so you can track the day.
+          </p>
+        </div>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {shows.map((element, i) => (
+            <li
+              key={`${element}-${i}`}
+              className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-900/10 bg-emerald-50 px-4 py-3 shadow-sm"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-extrabold text-emerald-950/90">
+                  {element}
+                </p>
+                <p className="mt-0.5 text-xs text-emerald-900/60">
+                  Tap ✕ to remove
+                </p>
+              </div>
+
+              <button
+                onClick={() => removeShow(i)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-emerald-900/10 bg-white/70 text-sm font-black text-emerald-900/60 hover:text-rose-700 hover:bg-rose-50 active:scale-[0.98]"
+                aria-label="Remove show"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+// === components/dashboard/RoutineCard.tsx ===
+import Link from "next/link";
+
+export default function RoutineCard() {
+  return (
+    <section className="rounded-3xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
+      {/* Top */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+              ☀️ Today
+            </span>
+            <span className="text-sm font-black tracking-tight text-emerald-950/90">
+              Today’s routine
+            </span>
+          </div>
+
+          <p className="mt-2 text-sm text-emerald-900/70">
+            There is no warm-up routine yet.
+          </p>
+        </div>
+
+        {/* Actions (stack in mobile) */}
+        <div className="flex w-full flex-col gap-2 sm:w-auto">
+          <Link
+            href="/session"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.99]"
+          >
+            Start warmup
+          </Link>
+
+          <Link
+            href="/warmups"
+            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-900/15 bg-emerald-50 px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-100 active:scale-[0.99]"
+          >
+            Choose routine
+          </Link>
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {["Voice warm-up", "Breath", "Resonance"].map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center rounded-full border border-emerald-900/10 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+// === components/Header.tsx ===
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+
+export default function Header() {
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const navItems = useMemo(
+    () => [
+      { href: "/", label: "Dashboard" },
+      { href: "/warmups", label: "Warmups" },
+      { href: "/history", label: "History" },
+      { href: "/about", label: "About" },
+    ],
+    []
+  );
+
+  const isActive = (href: string) =>
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname?.startsWith(`${href}/`);
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-emerald-900/10 bg-emerald-200/80 backdrop-blur-md">
+      <nav className="mx-auto max-w-4xl px-4 py-3">
+        {/* Top row */}
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-emerald-950/90"
+            onClick={() => setIsOpen(false)}
+          >
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white/70 border border-emerald-900/10 shadow-sm">
+              🌿
+            </span>
+            <div className="leading-tight">
+              <div className="text-sm font-black tracking-tight">
+                The Daily Singer
+              </div>
+              <div className="text-[11px] font-bold text-emerald-900/70">
+                daily voice routine
+              </div>
+            </div>
+          </Link>
+
+          {/* Desktop nav */}
+          <div className="hidden items-center gap-2 md:flex">
+            {navItems.map((item) => {
+              const active = isActive(item.href);
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={[
+                    "inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-extrabold transition",
+                    active
+                      ? "bg-white/80 text-emerald-950 shadow-sm border border-emerald-900/10"
+                      : "text-emerald-950/80 hover:text-emerald-950 hover:bg-white/40",
+                  ].join(" ")}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Mobile toggle */}
+          <button
+            onClick={() => setIsOpen((v) => !v)}
+            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-900/10 bg-white/70 shadow-sm active:scale-[0.98]"
+            aria-label="Toggle menu"
+            aria-expanded={isOpen}
+          >
+            <div className="relative h-4 w-5">
+              <span
+                className={[
+                  "absolute left-0 top-0 h-[2px] w-5 rounded-full bg-emerald-950/80 transition",
+                  isOpen ? "translate-y-[7px] rotate-45" : "",
+                ].join(" ")}
+              />
+              <span
+                className={[
+                  "absolute left-0 top-[7px] h-[2px] w-5 rounded-full bg-emerald-950/80 transition",
+                  isOpen ? "opacity-0" : "opacity-100",
+                ].join(" ")}
+              />
+              <span
+                className={[
+                  "absolute left-0 top-[14px] h-[2px] w-5 rounded-full bg-emerald-950/80 transition",
+                  isOpen ? "translate-y-[-7px] -rotate-45" : "",
+                ].join(" ")}
+              />
+            </div>
+          </button>
+        </div>
+
+        {/* Mobile menu */}
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.18 }}
+              className="md:hidden overflow-hidden"
+            >
+              <div className="mt-3 rounded-3xl border border-emerald-900/10 bg-white/70 p-3 shadow-sm">
+                <div className="grid gap-2">
+                  {navItems.map((item) => {
+                    const active = isActive(item.href);
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setIsOpen(false)}
+                        className={[
+                          "flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-extrabold transition",
+                          active
+                            ? "bg-emerald-600 text-white shadow-sm"
+                            : "bg-white/80 text-emerald-950 hover:bg-emerald-50",
+                        ].join(" ")}
+                      >
+                        <span>{item.label}</span>
+                        <span className="text-xs opacity-80">→</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between rounded-2xl bg-emerald-50 px-4 py-3">
+                  <div className="text-xs font-bold text-emerald-900/80">
+                    Tip
+                  </div>
+                  <div className="text-xs text-emerald-950/80">
+                    keep it short, stay consistent
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </nav>
+    </header>
+  );
+}
+// === components/data/audioLibrary.ts ===
+export type AudioItem = {
+  id: string;
+  name: string;
+  durationSec: number; // por ahora mock, después lo calculamos
+  type: "breathing" | "range" | "relax" | "register";
+  level: "easy" | "medium" | "hard";
+  audioUrl: string; // /audio/...
+  imageUrl?: string; // /images/...
+};
+
+export const AUDIO_LIBRARY: AudioItem[] = [
+  {
+    id: "aye-ah",
+    name: "Aye ah aye ah - Chest to mix belt",
+    durationSec: 45,
+    type: "register",
+    level: "medium",
+    audioUrl: "/audio/aye_ah_aye_ah_chest_to_mix_belt.mp3",
+  },
+  {
+    id: "gorilla",
+    name: "Gorilla",
+    durationSec: 60,
+    type: "breathing",
+    level: "easy",
+    audioUrl: "/audio/gorilla.mp3",
+  },
+  {
+    id: "hey-yeah",
+    name: "Hey Yeah!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/hey_yeah.mp3",
+  },
+  {
+    id: "larynx-vox-fry-reset",
+    name: "Larynx vox fry reset",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/larynx_vox_fry_reset.mp3",
+  },
+   {
+    id: "lip-buzz-cold-down",
+    name: "Lip buzz - cold down",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/lip_buzz_cold_down.mp3",
+  }, 
+  {
+    id: "lip-buzzes",
+    name: "Lip buzzes",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/lip_buzzes.mp3",
+  },
+
+  {
+    id: "miau",
+    name: "Miau!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/miau.mp3",
+  },
+  {
+    id: "nuh",
+    name: "Nuh Nuh Nuh!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/nuh.mp3",
+  },
+  {
+    id: "wee-awe",
+    name: "Wee awe!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/wee_awe.mp3",
+  },
+  {
+    id: "wuh-vocal-fry",
+    name: "Wuh - Vocal fry!",
+    durationSec: 50,
+    type: "range",
+    level: "medium",
+    audioUrl: "/audio/wuh_vocal_fry.mp3",
+  }
+  
+];
+
+// helper: buscar item por id
+export const getAudioById = (id: string) =>
+  AUDIO_LIBRARY.find((a) => a.id === id);
+// === components/session/SessionRunner.tsx ===
+"use client";
+
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { getAudioById } from "@/components/data/audioLibrary";
+
+type SessionRunnerProps = {
+  routineId: string;
+};
+
+type RoutineStep = {
+  id: string;
+  title: string;
+  description: string;
+  imageAltText: string;
+  imageUrl: string; // por ahora placeholder
+  audioUrl: string; // por ahora placeholder
+};
+
+type StepProgress =
+  | { status: "pending"; note?: string }
+  | { status: "skipped"; note?: string }
+  | { status: "rated"; rating: number; note?: string };
+
+// esto es para dejar guardada ese string para localStorage y no escribirlo mal en un futuro (recomendacion de chat)
+const PERSONAL_ROUTINE_LOCALSTORAGE_KEY = "personalRoutineItems";
+
+// Presets: por ahora simple
+const PRESET_ITEMS_BY_ID: Record<string, string[]> = {
+  "high-range": ["sirens-medium", "high-notes-support"],
+  resistance: ["breath-control", "sirens-medium"],
+  "relax-reset": ["breath-control", "relax-jaw-neck"],
+};
+
+// Convierte strings -> steps con data mock
+function buildStepsFromIds(audioIds: string[]): RoutineStep[] {
+  return audioIds
+    .map((audioId, index) => {
+      const item = getAudioById(audioId);
+      if (!item) return null;
+
+      return {
+        id: `${index}-${item.id}`,
+        title: item.name,
+        description: `Do this exercise with relaxed posture and steady breath.`,
+        imageAltText: `Warmup exercise: ${item.name}`,
+        imageUrl: item.imageUrl ?? "/images/placeholder.png",
+        audioUrl: item.audioUrl,
+      };
+    })
+    .filter((step): step is RoutineStep => step !== null);
+}
+
+export default function SessionRunner(props: SessionRunnerProps) {
+    //esto es para guardar el props en una variable para facil uso
+  const routineId = props.routineId;
+
+  const [steps, setSteps] = useState<RoutineStep[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+  const [finalComment, setFinalComment] = useState("");
+  const [direction, setDirection] = useState<1 | -1>(1);
+
+  // Progreso por step (pending/skipped/rated)
+  const [progressByIndex, setProgressByIndex] = useState<StepProgress[]>([]);
+
+  // Cargar steps según rutina
+  useEffect(() => {
+    let audioIds: string[] = [];
+
+    if (routineId === "personal") {
+      const savedItemsAsString = localStorage.getItem(PERSONAL_ROUTINE_LOCALSTORAGE_KEY);
+
+      if (savedItemsAsString) {
+        audioIds = JSON.parse(savedItemsAsString);
+      } else {
+        audioIds = [];
+      }
+    } else {
+      const presetItems = PRESET_ITEMS_BY_ID[routineId];
+      audioIds = presetItems ? presetItems : [];
+    }
+
+    const newSteps = buildStepsFromIds(audioIds);
+
+    setSteps(newSteps);
+    setCurrentStepIndex(0);
+    setIsSummaryOpen(false);
+    setFinalComment("");
+
+    // Reiniciar progreso para que sea del mismo tamaño que steps
+    const newProgress: StepProgress[] = newSteps.map(() => {
+      return { status: "pending" };
+    });
+    setProgressByIndex(newProgress);
+  }, [routineId]);
+
+    const currentStep = steps[currentStepIndex];
+
+    const currentProgress = progressByIndex[currentStepIndex];
+    const isCurrentDone =
+    currentProgress?.status === "rated" || currentProgress?.status === "skipped";
+
+    const totalSteps = steps.length;
+
+    // progreso por step actual (1..total)
+    const currentStepNumber = currentStepIndex + 1;
+
+    // porcentaje (0..100)
+    const progressPercent = (currentStepNumber / totalSteps) * 100;
+
+    const setRatingForCurrentStep = (rating: number) => {
+    setProgressByIndex((previousProgress) => {
+        return previousProgress.map((progress, index) => {
+        if (index !== currentStepIndex) return progress;
+
+        // mantenemos note (y lo que haya) + actualizamos status y rating
+        return { ...progress, status: "rated", rating };
+        });
+    });
+    };
+
+const skipCurrentStep = () => {
+  setProgressByIndex((previousProgress) => {
+    return previousProgress.map((progress, index) => {
+      if (index !== currentStepIndex) return progress;
+
+      // mantenemos note + cambiamos status
+      return { ...progress, status: "skipped" };
+    });
+  });
+};
+
+const goToNextStep = () => {
+  const nextIndex = currentStepIndex + 1;
+  if (nextIndex >= steps.length) return;
+
+  setDirection(1);
+  setCurrentStepIndex(nextIndex);
+  setIsNoteOpen(false);
+};
+  // Si no hay steps, mostramos mensaje
+  if (steps.length === 0) {
+  return (
+    <section className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-extrabold text-neutral-900">Session</h2>
+          <p className="mt-1 text-sm text-neutral-600">
+            No steps found for this routine yet.
+          </p>
+        </div>
+
+        <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+          ⚠️ Empty routine
+        </span>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4">
+        <p className="text-sm font-bold text-emerald-900">
+          Tip: go to “Edit routine” and add 3–6 items.
+        </p>
+        <p className="mt-1 text-sm text-neutral-600">
+          Then come back and start your warm-up.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+const goToPreviousStep = () => {
+    const prevIndex = currentStepIndex - 1;
+    if (prevIndex < 0) return;
+
+    setDirection(-1);
+    setCurrentStepIndex(prevIndex);
+    setIsNoteOpen(false);
+};
+
+  const setNoteForCurrentStep = (noteText: string) => {
+  setProgressByIndex((previousProgress) => {
+    return previousProgress.map((progress, index) => {
+      if (index !== currentStepIndex) {
+        return progress;
+      }
+
+      return { ...progress, note: noteText };
+    });
+  });
+};
+
+    const getStatusLabel = (progress: StepProgress | undefined) => {
+    if (!progress) return "⬜ Pending";
+
+    if (progress.status === "rated") return `✅ Rated (${progress.rating})`;
+    if (progress.status === "skipped") return "⏭️ Skipped";
+
+    return "⬜ Pending";
+    };
+
+if (isSummaryOpen) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.section
+        key="summary"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 10 }}
+        transition={{ duration: 0.2 }}
+        className="rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-black tracking-tight text-neutral-900">
+              Session summary
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Review your ratings and notes. Add a final comment if you want.
+            </p>
+          </div>
+
+          <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+            ✅ Completed
+          </span>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-5">
+          <div className="flex items-center justify-between text-xs text-neutral-600">
+            <span className="font-bold">Warm-up completed</span>
+            <span className="font-black text-emerald-900">100%</span>
+          </div>
+
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+            <div className="h-full w-full bg-emerald-600" />
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="mt-6 space-y-3">
+          {steps.map((step, index) => {
+            const progress = progressByIndex[index];
+            const label = getStatusLabel(progress);
+            const noteText = progress?.note?.trim();
+
+            return (
+              <div
+                key={step.id}
+                className="rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-extrabold text-neutral-900">
+                      <span className="mr-2 inline-flex h-7 items-center rounded-full bg-white px-2 text-xs font-black text-emerald-900 border border-emerald-900/10">
+                        {index + 1}
+                      </span>
+                      {step.title}
+                    </div>
+                    <div className="mt-1 text-xs font-bold text-neutral-600">
+                      {label}
+                    </div>
+                  </div>
+                </div>
+
+                {noteText ? (
+                  <div className="mt-3 text-sm text-neutral-800">
+                    <span className="font-bold text-neutral-600">Note:</span>{" "}
+                    {noteText}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Final comment */}
+        <div className="mt-6">
+          <p className="text-sm font-extrabold text-neutral-900">
+            Final comment <span className="text-neutral-500">(optional)</span>
+          </p>
+
+          <textarea
+            className="mt-3 w-full rounded-2xl border border-emerald-900/15 bg-emerald-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            placeholder="Anything to remember about today’s warmup?"
+            value={finalComment}
+            onChange={(e) => setFinalComment(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setIsSummaryOpen(false)}
+            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50"
+          >
+            Back to session
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() =>
+              console.log("Finish (mock):", { routineId, progressByIndex, finalComment })
+            }
+            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700"
+          >
+            Finish
+          </motion.button>
+        </div>
+      </motion.section>
+    </AnimatePresence>
+  );
+}
+
+return (
+  <section className="rounded-3xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
+    {/* STEP CONTENT animado */}
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={currentStep.id}
+        initial={{ opacity: 0, x: direction * 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: direction * -20 }}
+        transition={{ duration: 0.18 }}
+      >
+        {/* Progress */}
+        <div className="mb-4 sm:mb-5">
+          <div className="flex items-center justify-between text-xs text-neutral-600">
+            <span className="font-bold">
+              Step {currentStepNumber} / {totalSteps}
+            </span>
+            <span className="font-black text-emerald-900">
+              {Math.round(progressPercent)}%
+            </span>
+          </div>
+
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+            <motion.div
+              className="h-full bg-emerald-600"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ type: "spring", stiffness: 140, damping: 20 }}
+            />
+          </div>
+        </div>
+
+        {/* Step header */}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+              🎯 Current
+            </span>
+
+            <span className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-3 py-1 text-xs font-black text-neutral-700">
+              {getStatusLabel(currentProgress)}
+            </span>
+          </div>
+
+          <h2 className="mt-3 text-xl font-black tracking-tight text-emerald-900 sm:text-2xl">
+            {currentStep.title}
+          </h2>
+          <p className="mt-2 text-sm text-neutral-600">
+            {currentStep.description}
+          </p>
+        </div>
+
+        {/* Audio (SIN contenedor, full width) */}
+        <div className="mt-4 -mx-2 sm:mx-0">
+          <audio
+            controls
+            src={currentStep.audioUrl}
+            className="w-full"
+          />
+          <p className="mt-2 px-2 text-[11px] text-neutral-500 sm:px-0">
+            Source: <span className="font-mono">{currentStep.audioUrl}</span>
+          </p>
+        </div>
+
+        {/* Rating + skip */}
+        <div className="mt-6">
+          <p className="text-sm font-extrabold text-neutral-900">
+            How did it feel?
+          </p>
+          <p className="mt-1 text-xs text-neutral-600">
+            Rate or skip to continue.
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {[1, 2, 3, 4, 5].map((rating) => {
+              const isSelected =
+                currentProgress?.status === "rated" &&
+                currentProgress.rating === rating;
+
+              return (
+                <motion.button
+                  key={rating}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setRatingForCurrentStep(rating)}
+                  className={[
+                    "h-10 w-10 rounded-full border text-sm font-extrabold transition",
+                    "active:scale-[0.97]",
+                    isSelected
+                      ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+                      : "border-emerald-900/15 bg-white text-emerald-900 hover:bg-emerald-50",
+                  ].join(" ")}
+                >
+                  {rating}
+                </motion.button>
+              );
+            })}
+
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={skipCurrentStep}
+              className="inline-flex h-10 items-center justify-center rounded-full border border-emerald-900/15 bg-rose-50 px-4 text-sm font-extrabold text-rose-700 hover:bg-rose-100"
+            >
+              Skip
+            </motion.button>
+          </div>
+        </div>
+
+        {/* Note optional */}
+        <div className="mt-5">
+          <button
+            onClick={() => setIsNoteOpen((prev) => !prev)}
+            className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-4 py-2 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50"
+          >
+            {isNoteOpen ? "Hide note" : "Add note (optional)"}
+          </button>
+
+          {isNoteOpen ? (
+            <textarea
+              className="mt-3 w-full rounded-2xl border border-emerald-900/15 bg-emerald-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              placeholder="Optional note (1–2 lines)..."
+              value={currentProgress?.note ?? ""}
+              onChange={(e) => setNoteForCurrentStep(e.target.value)}
+              rows={2}
+            />
+          ) : null}
+        </div>
+
+        {/* Nav */}
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={goToPreviousStep}
+            disabled={currentStepIndex === 0}
+            className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Back
+          </motion.button>
+
+          {currentStepIndex === steps.length - 1 && isCurrentDone ? (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                setIsNoteOpen(false);
+                setIsSummaryOpen(true);
+              }}
+              className="inline-flex h-11 items-center justify-center rounded-full border border-emerald-900/15 bg-white px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-50"
+            >
+              View summary
+            </motion.button>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={goToNextStep}
+              disabled={!isCurrentDone}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next
+            </motion.button>
+          )}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+
+    {/* TRACK fijo (más compacto en mobile) */}
+    <div className="mt-7 border-t border-emerald-900/10 pt-4 sm:mt-8 sm:pt-5">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-sm font-extrabold text-neutral-900">Routine track</p>
+          <p className="mt-1 text-xs text-neutral-600">
+            What’s done and what’s next.
+          </p>
+        </div>
+
+        <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+          {currentStepNumber}/{totalSteps}
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-2 sm:mt-4">
+        {steps.map((step, index) => {
+          const progress = progressByIndex[index];
+          const statusLabel =
+            progress?.status === "rated"
+              ? `✅ Rated (${progress.rating})`
+              : progress?.status === "skipped"
+              ? "⏭️ Skipped"
+              : "⬜ Pending";
+
+          const isCurrent = index === currentStepIndex;
+
+          return (
+            <div
+              key={step.id}
+              className={[
+                "flex items-center justify-between rounded-2xl border px-3 py-2 sm:px-4 sm:py-3",
+                isCurrent
+                  ? "border-emerald-600/40 bg-emerald-50 ring-2 ring-emerald-200"
+                  : "border-emerald-900/10 bg-white",
+              ].join(" ")}
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-extrabold text-neutral-900 truncate">
+                  <span className="mr-2 inline-flex h-7 items-center rounded-full bg-emerald-100 px-2 text-xs font-black text-emerald-900">
+                    {index + 1}
+                  </span>
+                  {step.title}
+                </div>
+                <div className="mt-0.5 text-xs pt-1 font-bold text-neutral-600">
+                  {statusLabel}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+);
+}

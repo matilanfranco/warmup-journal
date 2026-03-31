@@ -1,54 +1,115 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { getAudioById } from "@/components/data/audioLibrary";
+
+const PERSONAL_ROUTINE_KEY = "personalRoutineItems";
 
 export default function RoutineCard() {
-  return (
-    <section className="rounded-3xl border border-emerald-900/10 bg-white p-4 shadow-sm sm:p-6">
-      {/* Top */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
-              ☀️ Today
-            </span>
-            <span className="text-sm font-black tracking-tight text-emerald-950/90">
-              Today’s routine
-            </span>
-          </div>
+  const [routineIds, setRoutineIds] = useState<string[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
-          <p className="mt-2 text-sm text-emerald-900/70">
-            There is no warm-up routine yet.
+  useEffect(() => {
+    const saved = localStorage.getItem(PERSONAL_ROUTINE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setRoutineIds(parsed);
+      } catch {}
+    }
+    setLoaded(true);
+  }, []);
+
+  const items = routineIds
+    .map((id) => getAudioById(id))
+    .filter(Boolean);
+
+  const totalSec = items.reduce((acc, item) => acc + (item?.durationSec ?? 0), 0);
+  const totalMin = Math.round(totalSec / 60) || 0;
+  const preview = items.slice(0, 4);
+  const extra = items.length - 4;
+  const hasItems = items.length > 0;
+
+  const stats = [
+    { label: "Streak", value: "—" },
+    { label: "This week", value: "—" },
+    { label: "Avg rating", value: "—" },
+  ];
+
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-extrabold text-emerald-950/90 truncate">
+            Your routine
+          </p>
+          <p className="text-sm text-emerald-900/60 mt-0.5">
+            {loaded
+              ? hasItems
+                ? `${items.length} exercise${items.length !== 1 ? "s" : ""} · ~${totalMin} min`
+                : "No routine set up yet"
+              : "Loading..."}
           </p>
         </div>
 
-        {/* Actions (stack in mobile) */}
-        <div className="flex w-full flex-col gap-2 sm:w-auto">
+        <div className="flex gap-2 shrink-0">
           <Link
             href="/session"
-            className="inline-flex h-11 w-full items-center justify-center rounded-full bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-sm hover:bg-emerald-700 active:scale-[0.99]"
+            className="inline-flex h-9 items-center justify-center rounded-full bg-emerald-700 px-4 text-sm font-extrabold text-white hover:bg-emerald-800 active:scale-[0.98] transition-colors"
           >
             Start warmup
           </Link>
-
           <Link
-            href="/warmups"
-            className="inline-flex h-11 w-full items-center justify-center rounded-full border border-emerald-900/15 bg-emerald-50 px-5 text-sm font-extrabold text-emerald-900 hover:bg-emerald-100 active:scale-[0.99]"
+            href="/warmups/routine"
+            className="inline-flex h-9 items-center justify-center rounded-full bg-emerald-100 border border-emerald-700/20 px-4 text-sm font-extrabold text-emerald-800 hover:bg-emerald-200 active:scale-[0.98] transition-colors"
           >
-            Choose routine
+            Edit
           </Link>
         </div>
       </div>
 
-      {/* Tags */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        {["Voice warm-up", "Breath", "Resonance"].map((tag) => (
-          <span
-            key={tag}
-            className="inline-flex items-center rounded-full border border-emerald-900/10 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-900/80"
-          >
-            {tag}
-          </span>
+      {loaded && hasItems && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {preview.map((item) => (
+            <span
+              key={item!.id}
+              className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-700/15 px-3 py-1 text-xs font-bold text-emerald-800"
+            >
+              {item!.name}
+            </span>
+          ))}
+          {extra > 0 && (
+            <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-700/15 px-3 py-1 text-xs font-bold text-emerald-800">
+              +{extra} more
+            </span>
+          )}
+        </div>
+      )}
+
+      {loaded && !hasItems && (
+        <div className="mt-4 rounded-2xl border border-emerald-900/10 bg-emerald-50 p-4">
+          <p className="text-sm font-bold text-emerald-900">
+            No exercises added yet.
+          </p>
+          <p className="mt-1 text-sm text-emerald-900/70">
+            Go to Edit to build your warmup routine.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {stats.map((stat) => (
+          <div key={stat.label} className="rounded-2xl bg-emerald-50 px-3 py-2.5">
+            <p className="text-[10px] font-black tracking-widest uppercase text-emerald-700">
+              {stat.label}
+            </p>
+            <p className="text-xl font-extrabold text-emerald-950 mt-1">
+              {stat.value}
+            </p>
+          </div>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
