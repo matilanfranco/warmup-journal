@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
-import { DM_Sans } from "next/font/google";
+import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Header";
-import Footer from "../components/Footer";
+import BottomNav from "../components/BottomNav";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["300", "400", "500", "700"],
   variable: "--font-dm-sans",
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-playfair",
 });
 
 export const metadata: Metadata = {
@@ -21,13 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={dmSans.variable}>
-      <body className="min-h-screen bg-[#DFF7E3] dark:bg-[#0d1a11] text-emerald-950 dark:text-emerald-50 overflow-x-hidden">
+    <html lang="en" className={`${dmSans.variable} ${playfair.variable}`}>
+      <body className="min-h-screen bg-[#F5F2EC] text-[#1C2B22] overflow-x-hidden font-sans">
         <Header />
-        <div className="mx-auto max-w-4xl px-2 py-6 sm:px-6">
+        <div className="mx-auto max-w-md pb-24">
           {children}
         </div>
-        <Footer />
+        <BottomNav />
       </body>
     </html>
   );

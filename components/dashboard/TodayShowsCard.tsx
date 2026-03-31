@@ -3,10 +3,11 @@
 import { useState } from "react";
 
 type RatingKey = "voice" | "energy" | "confidence" | "range";
-type Feeling = "Energized" | "Tired" | "Confident" | "Nervous" | "In the flow" | "Off day";
+type Feeling = "Calm" | "Energetic" | "Confident" | "Nervous" | "In the flow" | "Strained";
 
 type ShowEntry = {
   name: string;
+  time: string;
   ratings: Record<RatingKey, number>;
   feeling: Feeling | null;
   note: string;
@@ -15,57 +16,23 @@ type ShowEntry = {
 
 const RATING_LABELS: { key: RatingKey; label: string }[] = [
   { key: "voice", label: "Voice quality" },
-  { key: "energy", label: "Energy on stage" },
+  { key: "energy", label: "Energy" },
   { key: "confidence", label: "Confidence" },
   { key: "range", label: "Range & control" },
 ];
 
-const FEELINGS: Feeling[] = [
-  "Energized",
-  "Tired",
-  "Confident",
-  "Nervous",
-  "In the flow",
-  "Off day",
-];
+const FEELINGS: Feeling[] = ["Calm", "Energetic", "Confident", "Nervous", "In the flow", "Strained"];
 
 const emptyShow = (): ShowEntry => ({
   name: "",
+  time: "",
   ratings: { voice: 0, energy: 0, confidence: 0, range: 0 },
   feeling: null,
   note: "",
   done: false,
 });
 
-function StepDots({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-1.5 mb-5">
-      {[0, 1, 2, 3].map((i) => (
-        <div
-          key={i}
-          className={`h-2 rounded-full transition-all ${
-            i === current
-              ? "w-6 bg-emerald-700"
-              : i < current
-              ? "w-2 bg-emerald-400"
-              : "w-2 bg-emerald-200"
-          }`}
-        />
-      ))}
-      <span className="text-xs text-emerald-700/60 ml-1">
-        Step {current + 1} of 4
-      </span>
-    </div>
-  );
-}
-
-function StarRow({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
+function StarRow({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <div className="flex gap-1.5">
       {[1, 2, 3, 4, 5].map((i) => (
@@ -73,10 +40,10 @@ function StarRow({
           key={i}
           type="button"
           onClick={() => onChange(i)}
-          className={`w-8 h-8 rounded-lg border text-sm transition active:scale-95 ${
+          className={`w-8 h-8 rounded-lg text-sm transition active:scale-95 border ${
             value >= i
-              ? "bg-emerald-100 border-emerald-400 text-emerald-700"
-              : "bg-emerald-50 border-emerald-200 text-emerald-300 hover:border-emerald-300"
+              ? "bg-[#EAF0EB] border-[#3D7A55] text-[#2C5F3F]"
+              : "bg-[#F5F2EC] border-[rgba(44,95,63,0.15)] text-[#B5C4B9]"
           }`}
         >
           ★
@@ -87,293 +54,245 @@ function StarRow({
 }
 
 function EntryView({ show }: { show: ShowEntry }) {
-  const avg =
-    Object.values(show.ratings).reduce((a, b) => a + b, 0) /
-    Object.values(show.ratings).length;
-  const stars = Array.from({ length: 5 }, (_, i) =>
-    i < Math.round(avg) ? "★" : "☆"
-  ).join("");
+  const avg = Math.round(Object.values(show.ratings).reduce((a, b) => a + b, 0) / 4);
+  const stars = Array.from({ length: 5 }, (_, i) => (i < avg ? "★" : "☆")).join("");
 
   return (
-    <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
-      <p className="font-extrabold text-emerald-950 mb-2">
-        {show.name}{" "}
-        <span className="text-xs font-bold text-emerald-600">{stars}</span>
-      </p>
-      <div className="flex flex-wrap gap-3 mb-3">
+    <div className="bg-[#F9F8F5] rounded-2xl p-4 border border-[rgba(44,95,63,0.08)]">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          {show.time && (
+            <p className="text-[11px] text-[#8FA896] font-medium mb-0.5">{show.time}</p>
+          )}
+          <p className="text-[14px] font-semibold text-[#1C2B22]">{show.name}</p>
+        </div>
+        <span className="text-[13px] text-[#3D7A55] mt-0.5">{stars}</span>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-2">
         {RATING_LABELS.map(({ key, label }) => (
-          <span key={key} className="text-xs text-emerald-700">
+          <span
+            key={key}
+            className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-[rgba(44,95,63,0.1)] text-[#5A7A65]"
+          >
             {label.split(" ")[0]} {show.ratings[key]}/5
           </span>
         ))}
       </div>
       {show.feeling && (
-        <span className="inline-flex px-3 py-1 rounded-full text-xs font-bold bg-emerald-200 text-emerald-800 mb-2">
+        <span className="inline-flex px-3 py-1 rounded-full text-[11px] font-medium bg-[#EAF0EB] text-[#2C5F3F] mr-2">
           {show.feeling}
         </span>
       )}
       {show.note && (
-        <p className="text-xs text-emerald-700 italic mt-1">"{show.note}"</p>
+        <p className="text-[12px] text-[#8FA896] italic mt-2">"{show.note}"</p>
+      )}
+    </div>
+  );
+}
+
+function AddShowCard({
+  index,
+  onSave,
+}: {
+  index: number;
+  onSave: (show: ShowEntry) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState(0);
+  const [show, setShow] = useState<ShowEntry>(emptyShow());
+  const [showValidation, setShowValidation] = useState(false);
+
+  const allRated = show.ratings.voice > 0 && show.ratings.energy > 0 &&
+    show.ratings.confidence > 0 && show.ratings.range > 0;
+
+  const setRating = (key: RatingKey, val: number) =>
+    setShow((s) => ({ ...s, ratings: { ...s.ratings, [key]: val } }));
+
+  const goNext = (from: number) => {
+    if (from === 1 && !allRated) { setShowValidation(true); return; }
+    setShowValidation(false);
+    setStep(from + 1);
+  };
+
+  const save = () => {
+    onSave({ ...show, done: true });
+    setOpen(false);
+    setStep(0);
+    setShow(emptyShow());
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full h-11 rounded-2xl border border-dashed border-[rgba(44,95,63,0.25)] bg-transparent flex items-center justify-center gap-2 text-[13px] text-[#8FA896] font-medium active:scale-[0.98] transition-transform hover:bg-[#F5F2EC]"
+      >
+        <span className="text-base leading-none">+</span> Add show {index + 1}
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-[#F9F8F5] rounded-2xl p-4 border border-[rgba(44,95,63,0.1)]">
+      {/* Step dots */}
+      <div className="flex items-center gap-1.5 mb-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 rounded-full transition-all ${
+              i === step ? "w-5 bg-[#2C5F3F]" : i < step ? "w-1.5 bg-[#3D7A55]" : "w-1.5 bg-[#D5E0D8]"
+            }`}
+          />
+        ))}
+        <span className="text-[10px] text-[#8FA896] ml-1">Step {step + 1} of 4</span>
+      </div>
+
+      {step === 0 && (
+        <div>
+          <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">What show was it?</p>
+          <p className="text-[11px] text-[#8FA896] mb-3">Name and time.</p>
+          <input
+            className="w-full bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)] mb-2"
+            placeholder="e.g. Jazz Club Saturday..."
+            value={show.name}
+            onChange={(e) => setShow((s) => ({ ...s, name: e.target.value }))}
+          />
+          <input
+            className="w-full bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)]"
+            placeholder="Time (e.g. 9:00 PM)"
+            value={show.time}
+            onChange={(e) => setShow((s) => ({ ...s, time: e.target.value }))}
+          />
+          <div className="flex justify-between items-center mt-4">
+            <button type="button" onClick={() => setOpen(false)} className="text-[12px] text-[#8FA896]">Cancel</button>
+            <button type="button" onClick={() => goNext(0)}
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 1 && (
+        <div>
+          <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">Rate your performance</p>
+          <p className="text-[11px] text-[#8FA896] mb-3">All 4 required to continue.</p>
+          {showValidation && (
+            <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+              Please rate all 4 categories first.
+            </div>
+          )}
+          <div className="space-y-3">
+            {RATING_LABELS.map(({ key, label }) => (
+              <div key={key}>
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-[11px] font-medium text-[#3D4A3E]">{label}</span>
+                  <span className="text-[11px] text-[#8FA896]">{show.ratings[key] || 0}/5</span>
+                </div>
+                <StarRow value={show.ratings[key]} onChange={(v) => setRating(key, v)} />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between items-center mt-4">
+            <button type="button" onClick={() => setStep(0)} className="text-[12px] text-[#8FA896]">← Back</button>
+            <button type="button" onClick={() => goNext(1)}
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div>
+          <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">How did your voice feel?</p>
+          <p className="text-[11px] text-[#8FA896] mb-3">Pick what resonates.</p>
+          <div className="flex flex-wrap gap-2">
+            {FEELINGS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setShow((s) => ({ ...s, feeling: f }))}
+                className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium border transition active:scale-95 ${
+                  show.feeling === f
+                    ? "bg-[#2C5F3F] text-white border-[#2C5F3F]"
+                    : "bg-white text-[#5A7A65] border-[rgba(44,95,63,0.2)] hover:bg-[#EAF0EB]"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between items-center mt-4">
+            <button type="button" onClick={() => setStep(1)} className="text-[12px] text-[#8FA896]">← Back</button>
+            <button type="button" onClick={() => goNext(2)}
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div>
+          <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">How was your day overall?</p>
+          <p className="text-[11px] text-[#8FA896] mb-3">Optional — but valuable over time.</p>
+          <textarea
+            className="w-full bg-white border border-[rgba(44,95,63,0.15)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)] resize-none"
+            rows={3}
+            placeholder="e.g. Voice felt warm, high notes came easier..."
+            value={show.note}
+            onChange={(e) => setShow((s) => ({ ...s, note: e.target.value }))}
+          />
+          <div className="flex justify-between items-center mt-4">
+            <button type="button" onClick={() => setStep(2)} className="text-[12px] text-[#8FA896]">← Back</button>
+            <button type="button" onClick={save}
+              className="h-9 px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold active:scale-95">
+              Save show ✓
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
 export default function TodayShowsCard() {
-  const [shows, setShows] = useState<ShowEntry[]>([
-    emptyShow(),
-    emptyShow(),
-    emptyShow(),
-  ]);
-  const [activeTab, setActiveTab] = useState(0);
-  const [steps, setSteps] = useState([0, 0, 0]);
-  const [showValidation, setShowValidation] = useState(false);
+  const [shows, setShows] = useState<(ShowEntry | null)[]>([null, null, null]);
 
-  const updateShow = (idx: number, updates: Partial<ShowEntry>) => {
-    setShows((prev) =>
-      prev.map((s, i) => (i === idx ? { ...s, ...updates } : s))
-    );
+  const saveShow = (idx: number, show: ShowEntry) => {
+    setShows((prev) => prev.map((s, i) => (i === idx ? show : s)));
   };
 
-  const setRating = (showIdx: number, key: RatingKey, val: number) => {
-    setShows((prev) =>
-      prev.map((s, i) =>
-        i === showIdx ? { ...s, ratings: { ...s.ratings, [key]: val } } : s
-      )
-    );
-  };
-
-  const setStep = (idx: number, step: number) => {
-    setSteps((prev) => prev.map((s, i) => (i === idx ? step : s)));
-    setShowValidation(false);
-  };
-
-  const allRated = (idx: number) => {
-    const r = shows[idx].ratings;
-    return r.voice > 0 && r.energy > 0 && r.confidence > 0 && r.range > 0;
-  };
-
-  const goNext = (idx: number, currentStep: number) => {
-    if (currentStep === 1 && !allRated(idx)) {
-      setShowValidation(true);
-      return;
-    }
-    setShowValidation(false);
-    setStep(idx, currentStep + 1);
-  };
-
-  const saveShow = (idx: number) => {
-    updateShow(idx, { done: true });
-  };
-
-  const anyDone = shows.some((s) => s.done);
-  const currentStep = steps[activeTab];
-  const currentShow = shows[activeTab];
+  const anyDone = shows.some((s) => s?.done);
 
   return (
-    <div>
-      <div className="flex items-start justify-between gap-3 mb-4">
+    <div className="mx-4 bg-white rounded-3xl p-5 border border-[rgba(44,95,63,0.08)] shadow-sm">
+      <div className="flex items-start justify-between mb-4">
         <div>
-          <p className="font-extrabold text-emerald-950/90">Tonight's shows</p>
-          <p className="text-sm text-emerald-900/60 mt-0.5">
-            Up to 3 shows · auto-saved at end of day
+          <h2 className="text-[16px] font-semibold text-[#1C2B22]" style={{ fontFamily: "'Playfair Display', serif" }}>
+            Tonight's performances
+          </h2>
+          <p className="text-[12px] text-[#8FA896] mt-0.5">
+            Log up to 3 shows you have tonight.
           </p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4">
-        {shows.map((show, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setActiveTab(i)}
-            className={`px-4 py-1.5 rounded-full text-xs font-extrabold border transition active:scale-[0.98] ${
-              i === activeTab
-                ? "bg-emerald-700 text-white border-emerald-700"
-                : show.done
-                ? "bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200"
-                : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-            }`}
-          >
-            {show.done ? `✓ Show ${i + 1}` : `Show ${i + 1}`}
-          </button>
-        ))}
+      <div className="space-y-3">
+        {shows.map((show, i) =>
+          show?.done ? (
+            <EntryView key={i} show={show} />
+          ) : (
+            <AddShowCard key={i} index={i} onSave={(s) => saveShow(i, s)} />
+          )
+        )}
       </div>
 
-      {/* Panel */}
-      {currentShow.done ? (
-        <EntryView show={currentShow} />
-      ) : (
-        <div>
-          <StepDots current={currentStep} />
-
-          {/* Step 0 — Name */}
-          {currentStep === 0 && (
-            <div>
-              <p className="text-sm font-extrabold text-emerald-950/90 mb-1">
-                What show was it?
-              </p>
-              <p className="text-xs text-emerald-900/60 mb-3">
-                Name this performance — venue, theme, whatever works.
-              </p>
-              <input
-                className="w-full rounded-2xl border border-emerald-900/15 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-950 placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500"
-                placeholder="e.g. Jazz Club Saturday..."
-                value={currentShow.name}
-                onChange={(e) =>
-                  updateShow(activeTab, { name: e.target.value })
-                }
-              />
-              <div className="flex justify-end mt-4">
-                <button
-                  type="button"
-                  onClick={() => goNext(activeTab, 0)}
-                  className="inline-flex h-9 items-center rounded-full bg-emerald-700 px-5 text-sm font-extrabold text-white hover:bg-emerald-800 active:scale-[0.98] transition-colors"
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 1 — Ratings */}
-          {currentStep === 1 && (
-            <div>
-              <p className="text-sm font-extrabold text-emerald-950/90 mb-1">
-                Rate your performance
-              </p>
-              <p className="text-xs text-emerald-900/60 mb-3">
-                All 4 required to continue.
-              </p>
-              {showValidation && (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800 mb-3">
-                  Please rate all 4 categories first.
-                </div>
-              )}
-              <div className="space-y-4">
-                {RATING_LABELS.map(({ key, label }) => (
-                  <div key={key}>
-                    <div className="flex justify-between mb-1.5">
-                      <span className="text-xs font-extrabold text-emerald-900">
-                        {label}
-                      </span>
-                      <span className="text-xs text-emerald-600">
-                        {currentShow.ratings[key] || 0}/5
-                      </span>
-                    </div>
-                    <StarRow
-                      value={currentShow.ratings[key]}
-                      onChange={(v) => setRating(activeTab, key, v)}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between items-center mt-4">
-                <button
-                  type="button"
-                  onClick={() => setStep(activeTab, 0)}
-                  className="text-xs text-emerald-700 hover:underline"
-                >
-                  ← Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goNext(activeTab, 1)}
-                  className="inline-flex h-9 items-center rounded-full bg-emerald-700 px-5 text-sm font-extrabold text-white hover:bg-emerald-800 active:scale-[0.98] transition-colors"
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2 — Feeling */}
-          {currentStep === 2 && (
-            <div>
-              <p className="text-sm font-extrabold text-emerald-950/90 mb-1">
-                How did it feel?
-              </p>
-              <p className="text-xs text-emerald-900/60 mb-3">
-                Pick what resonates most.
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                {FEELINGS.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => updateShow(activeTab, { feeling: f })}
-                    className={`rounded-xl border py-2.5 text-xs font-bold transition active:scale-[0.97] ${
-                      currentShow.feeling === f
-                        ? "bg-emerald-700 border-emerald-700 text-white"
-                        : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-              <div className="flex justify-between items-center mt-4">
-                <button
-                  type="button"
-                  onClick={() => setStep(activeTab, 1)}
-                  className="text-xs text-emerald-700 hover:underline"
-                >
-                  ← Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goNext(activeTab, 2)}
-                  className="inline-flex h-9 items-center rounded-full bg-emerald-700 px-5 text-sm font-extrabold text-white hover:bg-emerald-800 active:scale-[0.98] transition-colors"
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3 — Note */}
-          {currentStep === 3 && (
-            <div>
-              <p className="text-sm font-extrabold text-emerald-950/90 mb-1">
-                How was your day overall?
-              </p>
-              <p className="text-xs text-emerald-900/60 mb-3">
-                A few words about your voice. Optional but valuable.
-              </p>
-              <textarea
-                className="w-full rounded-2xl border border-emerald-900/15 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-950 placeholder:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-500 resize-none"
-                rows={3}
-                placeholder="e.g. Voice felt warm, high notes came easier..."
-                value={currentShow.note}
-                onChange={(e) =>
-                  updateShow(activeTab, { note: e.target.value })
-                }
-              />
-              <div className="flex justify-between items-center mt-4">
-                <button
-                  type="button"
-                  onClick={() => setStep(activeTab, 2)}
-                  className="text-xs text-emerald-700 hover:underline"
-                >
-                  ← Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => saveShow(activeTab)}
-                  className="inline-flex h-9 items-center rounded-full bg-emerald-700 px-5 text-sm font-extrabold text-white hover:bg-emerald-800 active:scale-[0.98] transition-colors"
-                >
-                  Save show ✓
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {anyDone && (
-        <p className="mt-4 text-center text-xs text-emerald-700 bg-emerald-50 rounded-xl py-2 border border-emerald-200">
-          ✓ Entries logged — will auto-save at end of day
+        <p className="text-center text-[11px] text-[#8FA896] mt-4 pt-3 border-t border-[rgba(44,95,63,0.07)]">
+          ✓ Auto-saves at end of day
         </p>
       )}
     </div>

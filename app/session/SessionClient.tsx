@@ -7,48 +7,38 @@ import SessionRunner from "@/components/session/SessionRunner";
 export default function SessionClient() {
   const searchParams = useSearchParams();
   const routineId = searchParams.get("routine") ?? "personal";
-
   const routineLabel =
     routineId === "personal" ? "Your routine" : routineId.replace(/-/g, " ");
 
   return (
-    <main className="min-h-screen bg-[#DFF7E3] text-neutral-900">
-      <div className="mx-auto max-w-4xl px-4 py-2">
-        {/* Top row */}
-        <div className="flex items-start justify-between gap-4">
+    <main className="min-h-screen bg-[#F5F2EC]">
+      <div className="mx-auto max-w-md px-4 pt-4 pb-28">
+
+        <div className="flex items-center justify-between mb-6">
           <Link
             href="/"
-            className="inline-flex items-center rounded-full border border-emerald-900/10 bg-white px-4 py-2 text-sm font-extrabold text-emerald-900 shadow-sm hover:bg-emerald-50"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#5A7A65] hover:text-[#2C5F3F] transition-colors"
           >
             ← Back to Dashboard
           </Link>
-
-          <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-900">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF0EB] text-[11px] font-semibold text-[#2C5F3F] border border-[rgba(44,95,63,0.15)]">
             🎤 Session
           </span>
         </div>
 
-        {/* Title */}
-        <h1 className="mt-6 text-3xl font-black tracking-tight text-emerald-900">
-          Welcome to today’s warmup
-        </h1>
-
-        <p className="mt-2 text-sm text-neutral-700">
-          Selected routine:{" "}
-          <span className="font-extrabold text-emerald-900">
+        <div className="mb-6">
+          <h1
+            className="text-[26px] text-[#1C2B22] leading-tight mb-1"
+            style={{ fontFamily: "'Playfair Display', serif", fontWeight: 400, fontStyle: "italic" }}
+          >
+            Today's warmup
+          </h1>
+          <p className="text-[13px] text-[#8FA896]">
             {routineLabel}
-          </span>
-        </p>
+          </p>
+        </div>
 
-        {/* Runner Card */}
-        <section className="mt-6 rounded-3xl border border-emerald-900/10 bg-white p-6 shadow-sm">
-          <SessionRunner routineId={routineId} />
-        </section>
-
-        {/* Small hint */}
-        <p className="mt-4 text-xs text-neutral-600">
-          Tip: keep it light and consistent — even 3 minutes counts.
-        </p>
+        <SessionRunner routineId={routineId} />
       </div>
     </main>
   );
