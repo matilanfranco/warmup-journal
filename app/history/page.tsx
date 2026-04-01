@@ -179,19 +179,19 @@ function DayCard({ entry }: { entry: DayEntry }) {
           <p className="text-[11px] font-bold tracking-widest uppercase text-[#8FA896] mb-1">
             {formatDate(entry.date)}
           </p>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {session && (
-              <span className="text-[12px] font-medium text-[#2C5F3F] bg-[#EAF0EB] px-2.5 py-0.5 rounded-full border border-[rgba(44,95,63,0.15)]">
+              <span className="text-[11px] font-medium text-[#2C5F3F] bg-[#EAF0EB] px-2 py-0.5 rounded-full border border-[rgba(44,95,63,0.15)] whitespace-nowrap">
                 🎤 Warmup {avg !== null ? `· ${avg}/5` : ""}
               </span>
             )}
             {shows && shows.shows.length > 0 && (
-              <span className="text-[12px] font-medium text-[#5A7A65] bg-[#F5F2EC] px-2.5 py-0.5 rounded-full border border-[rgba(44,95,63,0.1)]">
+              <span className="text-[11px] font-medium text-[#5A7A65] bg-[#F5F2EC] px-2 py-0.5 rounded-full border border-[rgba(44,95,63,0.1)] whitespace-nowrap">
                 🎭 {shows.shows.length} show{shows.shows.length !== 1 ? "s" : ""}
               </span>
             )}
             {entry.cooldown && (
-              <span className="text-[12px] font-medium text-[#3D5A8A] bg-[#DDE6F5] px-2.5 py-0.5 rounded-full border border-[rgba(61,90,138,0.15)]">
+              <span className="text-[11px] font-medium text-[#3D5A8A] bg-[#DDE6F5] px-2 py-0.5 rounded-full border border-[rgba(61,90,138,0.15)] whitespace-nowrap">
                 🌙 Cool down
               </span>
             )}
@@ -219,16 +219,21 @@ function DayCard({ entry }: { entry: DayEntry }) {
                   {completedSteps}/{totalSteps}
                 </span>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {session.steps.map((step, i) => (
-                  <div key={i} className="flex items-center justify-between py-1">
-                    <span className="text-[12px] text-[#5A7A65] truncate">{step.title}</span>
-                    <span className={`text-[11px] font-semibold ml-2 shrink-0 ${
-                      step.status === "rated" ? "text-[#2C5F3F]" :
-                      step.status === "skipped" ? "text-[#B5C4B9]" : "text-[#D5E0D8]"
-                    }`}>
-                      {step.status === "rated" ? `${step.rating}/5` : step.status === "skipped" ? "Skipped" : "—"}
-                    </span>
+                  <div key={i} className="rounded-xl bg-[#F9F8F5] px-3.5 py-2.5 border border-[rgba(44,95,63,0.06)]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#5A7A65] truncate">{step.title}</span>
+                      <span className={`text-[11px] font-semibold ml-2 shrink-0 ${
+                        step.status === "rated" ? "text-[#2C5F3F]" :
+                        step.status === "skipped" ? "text-[#B5C4B9]" : "text-[#D5E0D8]"
+                      }`}>
+                        {step.status === "rated" ? `${step.rating}/5` : step.status === "skipped" ? "Skipped" : "—"}
+                      </span>
+                    </div>
+                    {step.note && (
+                      <p className="text-[11px] text-[#8FA896] italic mt-1">"{step.note}"</p>
+                    )}
                   </div>
                 ))}
               </div>
