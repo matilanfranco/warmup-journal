@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getAudioById } from "@/components/data/audioLibrary";
 import { getStreak, getAvgRating, getSessionsThisWeek } from "@/lib/firebaseService";
+import { getAppDate } from "@/lib/dateUtils";
 
 const PERSONAL_ROUTINE_KEY = "personalRoutineItems";
+const PROGRESS_KEY = "warmupProgress";
 const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+type WarmupStatus = "not-started" | "in-progress" | "completed";
 
 export default function HeroCard() {
   const [routineIds, setRoutineIds] = useState<string[]>([]);
@@ -15,6 +19,7 @@ export default function HeroCard() {
   const [avgRating, setAvgRating] = useState<number | null>(null);
   const [thisWeek, setThisWeek] = useState<number>(0);
   const [statsLoaded, setStatsLoaded] = useState(false);
+  const [warmupStatus, setWarmupStatus] = useState<WarmupStatus>("not-started");
 
   useEffect(() => {
     const saved = localStorage.getItem(PERSONAL_ROUTINE_KEY);
@@ -24,6 +29,20 @@ export default function HeroCard() {
         if (Array.isArray(parsed)) setRoutineIds(parsed);
       } catch {}
     }
+
+    // Check today's warmup progress
+    try {
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (raw) {
+        const state = JSON.parse(raw);
+        if (state.date === getAppDate()) {
+          if (state.completed) setWarmupStatus("completed");
+          else if (state.currentIdx > 0 || state.progress?.some((p: any) => p.status !== "pending"))
+            setWarmupStatus("in-progress");
+        }
+      }
+    } catch {}
+
     setLoaded(true);
   }, []);
 
@@ -31,9 +50,7 @@ export default function HeroCard() {
     async function loadStats() {
       try {
         const [s, r, w] = await Promise.all([getStreak(), getAvgRating(), getSessionsThisWeek()]);
-        setStreak(s);
-        setAvgRating(r);
-        setThisWeek(w);
+        setStreak(s); setAvgRating(r); setThisWeek(w);
       } catch (e) {
         console.error("Stats error:", e);
       } finally {
@@ -51,11 +68,23 @@ export default function HeroCard() {
 
   const today = new Date().getDay();
   const todayIdx = today === 0 ? 6 : today - 1;
-  const completedDays = Array.from({ length: 7 }, (_, i) => i < todayIdx && i >= todayIdx - (streak - 1));
+  const completedDays = Array.from({ length: 7 }, (_, i) =>
+    i < todayIdx && i >= Math.max(0, todayIdx - (streak - 1))
+  );
 
   const date = new Intl.DateTimeFormat("en-US", {
     weekday: "long", month: "long", day: "numeric",
   }).format(new Date());
+
+  const btnLabel = warmupStatus === "completed"
+    ? "Warmup completed ✓"
+    : warmupStatus === "in-progress"
+    ? "Continue warmup →"
+    : "Start session →";
+
+  const btnStyle = warmupStatus === "completed"
+    ? { background: "rgba(44,95,63,0.15)", color: "#2C5F3F", border: "1px solid rgba(44,95,63,0.3)" }
+    : { background: "linear-gradient(135deg, #2C5F3F 0%, #3D7A55 100%)", color: "white" };
 
   return (
     <div className="mx-4 rounded-3xl overflow-hidden shadow-sm border border-white/60">
@@ -78,16 +107,16 @@ export default function HeroCard() {
           <p className="text-[12px] text-[#8FA896] mb-5">{date}</p>
 
           <Link href="/session"
-            className="flex items-center justify-center gap-2 w-full h-12 rounded-full text-[15px] font-semibold text-white tracking-wide active:scale-[0.98] transition-transform"
-            style={{ background: "linear-gradient(135deg, #2C5F3F 0%, #3D7A55 100%)" }}>
-            Start session →
+            className="flex items-center justify-center gap-2 w-full h-12 rounded-full text-[15px] font-semibold tracking-wide active:scale-[0.98] transition-transform"
+            style={btnStyle}>
+            {btnLabel}
           </Link>
 
           <div className="flex gap-2 mt-3">
             {loaded && preview.length > 0 && (
-              <div className="flex-1 flex items-center h-9 rounded-full bg-white/70 border border-white/80 px-3 gap-1">
+              <div className="flex-1 flex items-center h-9 rounded-full bg-white/70 border border-white/80 px-3 gap-1 overflow-hidden">
                 {preview.map((name, i) => (
-                  <span key={i} className="text-[11px] text-[#3D4A3E] font-medium">
+                  <span key={i} className="text-[11px] text-[#3D4A3E] font-medium shrink-0">
                     {name}{i < preview.length - 1 ? " · " : ""}
                   </span>
                 ))}
@@ -113,9 +142,9 @@ export default function HeroCard() {
                   {day}
                 </span>
                 <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  isToday ? "bg-[#2C5F3F]" : done ? "bg-[#EAF0EB]" : "bg-transparent"
+                  isToday ? (warmupStatus === "completed" ? "bg-[#2C5F3F]" : "bg-[#2C5F3F]/40") : done ? "bg-[#EAF0EB]" : "bg-transparent"
                 }`}>
-                  {(done || isToday) && (
+                  {(done || (isToday && warmupStatus === "completed")) && (
                     <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
                       <path d="M1 4L3.5 6.5L9 1" stroke={isToday ? "white" : "#3D7A55"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>

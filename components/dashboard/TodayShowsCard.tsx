@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { saveShows, getShows } from "@/lib/firebaseService";
 
 type RatingKey = "voice" | "energy" | "confidence" | "range";
-type Feeling = "Calm" | "Energetic" | "Confident" | "Nervous" | "In the flow" | "Strained";
+
 
 type ShowEntry = {
   name: string;
@@ -22,7 +22,27 @@ const RATING_LABELS: { key: RatingKey; label: string }[] = [
   { key: "range", label: "Range & control" },
 ];
 
-const FEELINGS: Feeling[] = ["Calm", "Energetic", "Confident", "Nervous", "In the flow", "Strained"];
+type Feeling =
+  | "Calm" | "Energetic" | "Confident" | "Nervous" | "In the flow" | "Strained"
+  | "Controlled" | "Tense" | "Fatigued" | "Smooth" | "Powerful" | "Cool"
+  | "Taking risks" | "Focused" | "Unfocused";
+
+const FEELING_GROUPS: { label: string; items: Feeling[] }[] = [
+  {
+    label: "Energy",
+    items: ["Energetic", "Calm", "Fatigued", "Cool"],
+  },
+  {
+    label: "Voice",
+    items: ["Smooth", "Controlled", "Powerful", "Strained", "Tense"],
+  },
+  {
+    label: "Mindset",
+    items: ["Confident", "Nervous", "Focused", "Unfocused", "In the flow", "Taking risks"],
+  },
+];
+
+const ALL_FEELINGS: Feeling[] = FEELING_GROUPS.flatMap((g) => g.items);
 
 const emptyShow = (): ShowEntry => ({
   name: "",
@@ -222,16 +242,23 @@ function ShowForm({ index, initial, onSave, onCancel }: {
         <div>
           <p className="text-[13px] font-semibold text-[#1C2B22] mb-1">How did your voice feel?</p>
           <p className="text-[11px] text-[#8FA896] mb-3">Select all that apply.</p>
-          <div className="flex flex-wrap gap-2">
-            {FEELINGS.map((f) => (
-              <button key={f} type="button" onClick={() => toggleFeeling(f)}
-                className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium border transition active:scale-95 ${
-                  show.feelings.includes(f)
-                    ? "bg-[#2C5F3F] text-white border-[#2C5F3F]"
-                    : "bg-white text-[#5A7A65] border-[rgba(44,95,63,0.2)] hover:bg-[#EAF0EB]"
-                }`}>
-                {show.feelings.includes(f) ? "✓ " : ""}{f}
-              </button>
+          <div className="space-y-3">
+            {FEELING_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="text-[9px] font-black tracking-widest uppercase text-[#8FA896] mb-1.5">{group.label}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.items.map((f) => (
+                    <button key={f} type="button" onClick={() => toggleFeeling(f)}
+                      className={`px-3 py-1.5 rounded-full text-[11px] font-medium border transition active:scale-95 ${
+                        show.feelings.includes(f)
+                          ? "bg-[#2C5F3F] text-white border-[#2C5F3F]"
+                          : "bg-white text-[#5A7A65] border-[rgba(44,95,63,0.2)] hover:bg-[#EAF0EB]"
+                      }`}>
+                      {show.feelings.includes(f) ? "✓ " : ""}{f}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
           {show.feelings.length > 0 && (

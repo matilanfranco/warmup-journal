@@ -16,33 +16,36 @@ export default function AudioPlayer({ src }: { src: string }) {
     else { a.play(); setPlaying(true); }
   };
 
-  const fmt = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
+  const fmt = (s: number) =>
+    `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+  const onSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const a = audioRef.current;
     if (!a || !duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    a.currentTime = pct * duration;
+    const val = Number(e.target.value);
+    a.currentTime = (val / 100) * duration;
+    setProgress(val);
   };
 
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    const onTime = () => { setCurrent(a.currentTime); setProgress(duration ? (a.currentTime / duration) * 100 : 0); };
+    const onTime = () => {
+      setCurrent(a.currentTime);
+      setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0);
+    };
     const onLoad = () => setDuration(a.duration);
     const onEnd = () => { setPlaying(false); setProgress(0); setCurrent(0); };
     a.addEventListener("timeupdate", onTime);
     a.addEventListener("loadedmetadata", onLoad);
     a.addEventListener("ended", onEnd);
-    return () => { a.removeEventListener("timeupdate", onTime); a.removeEventListener("loadedmetadata", onLoad); a.removeEventListener("ended", onEnd); };
-  }, [duration]);
+    return () => {
+      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("loadedmetadata", onLoad);
+      a.removeEventListener("ended", onEnd);
+    };
+  }, []);
 
-  // Reset on src change
   useEffect(() => {
     setPlaying(false); setProgress(0); setCurrent(0); setDuration(0);
     audioRef.current?.pause();
@@ -52,18 +55,22 @@ export default function AudioPlayer({ src }: { src: string }) {
     <div className="bg-[#F9F8F5] rounded-2xl p-4 border border-[rgba(44,95,63,0.08)]">
       <audio ref={audioRef} src={src} preload="metadata" />
 
-      {/* Progress bar — clickable */}
-      <div
-        className="h-1 bg-[#EAF0EB] rounded-full mb-3 cursor-pointer overflow-hidden"
-        onClick={seek}
-      >
-        <div
-          className="h-full bg-[#2C5F3F] rounded-full transition-all duration-100"
-          style={{ width: `${Math.round(progress)}%` }}
+      {/* Seek bar */}
+      <div className="mb-3">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={0.1}
+          value={Math.round(progress * 10) / 10}
+          onChange={onSeek}
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+          style={{
+            background: `linear-gradient(to right, #2C5F3F ${Math.round(progress)}%, #EAF0EB ${Math.round(progress)}%)`,
+          }}
         />
       </div>
 
-      {/* Controls row */}
       <div className="flex items-center gap-3">
         <button
           onClick={toggle}
@@ -80,12 +87,9 @@ export default function AudioPlayer({ src }: { src: string }) {
             </svg>
           )}
         </button>
-
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-[#5A7A65]">{fmt(current)}</span>
-            <span className="text-[11px] text-[#B5C4B9]">{duration ? fmt(duration) : "--:--"}</span>
-          </div>
+        <div className="flex-1 flex items-center justify-between">
+          <span className="text-[11px] font-medium text-[#5A7A65]">{fmt(current)}</span>
+          <span className="text-[11px] text-[#B5C4B9]">{duration ? fmt(duration) : "--:--"}</span>
         </div>
       </div>
     </div>

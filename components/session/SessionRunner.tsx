@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { getAudioById } from "@/components/data/audioLibrary";
 import AudioPlayer from "@/components/session/AudioPlayer";
 import { saveSession, StepRecord } from "@/lib/firebaseService";
+import { getAppDate } from "@/lib/dateUtils";
 
 type SessionRunnerProps = { routineId: string };
 
@@ -20,7 +21,17 @@ type StepProgress =
   | { status: "skipped"; note?: string }
   | { status: "rated"; rating: number; note?: string };
 
+type PersistedState = {
+  date: string;
+  routineId: string;
+  currentIdx: number;
+  progress: StepProgress[];
+  finalComment: string;
+  completed: boolean;
+};
+
 const PERSONAL_ROUTINE_KEY = "personalRoutineItems";
+const PROGRESS_KEY = "warmupProgress";
 
 const PRESET_ITEMS: Record<string, string[]> = {
   "high-range": ["sirens-medium", "high-notes-support"],
@@ -45,15 +56,12 @@ function buildSteps(audioIds: string[]): RoutineStep[] {
 
 function RatingButton({ value, selected, onClick }: { value: number; selected: boolean; onClick: () => void }) {
   return (
-    <motion.button
-      whileTap={{ scale: 0.95 }}
-      onClick={onClick}
+    <motion.button whileTap={{ scale: 0.95 }} onClick={onClick}
       className={`w-10 h-10 rounded-xl text-[14px] font-semibold border transition-all ${
         selected
           ? "bg-[#2C5F3F] text-white border-[#2C5F3F]"
           : "bg-white text-[#5A7A65] border-[rgba(44,95,63,0.2)] hover:bg-[#EAF0EB]"
-      }`}
-    >
+      }`}>
       {value}
     </motion.button>
   );
@@ -69,7 +77,29 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
   const [direction, setDirection] = useState<1 | -1>(1);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
+  // ── Persist progress to localStorage on every change ──────
+  const persist = useCallback((
+    idx: number,
+    prog: StepProgress[],
+    comment: string,
+    completed: boolean,
+    stepsForSave: RoutineStep[],
+    rId: string
+  ) => {
+    const state: PersistedState = {
+      date: getAppDate(),
+      routineId: rId,
+      currentIdx: idx,
+      progress: prog,
+      finalComment: comment,
+      completed,
+    };
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(state));
+  }, []);
+
+  // ── Load steps and resume from localStorage if same day ───
   useEffect(() => {
     let ids: string[] = [];
     if (routineId === "personal") {
@@ -80,11 +110,38 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
     }
     const newSteps = buildSteps(ids);
     setSteps(newSteps);
+
+    // Try to restore today's progress
+    try {
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (raw) {
+        const saved: PersistedState = JSON.parse(raw);
+        // Only restore if same day AND same routine
+        if (saved.date === getAppDate() && saved.routineId === routineId) {
+          setCurrentIdx(saved.currentIdx);
+          // Merge saved progress with steps (steps may have changed length)
+          const merged: StepProgress[] = newSteps.map((_, i) =>
+            saved.progress[i] ?? { status: "pending" }
+          );
+          setProgress(merged);
+          setFinalComment(saved.finalComment ?? "");
+          if (saved.completed) {
+            setSummaryOpen(true);
+            setSaved(true);
+          }
+          setLoaded(true);
+          return;
+        }
+      }
+    } catch {}
+
+    // Fresh start
     setCurrentIdx(0);
-    setSummaryOpen(false);
-    setFinalComment("");
-    setSaved(false);
     setProgress(newSteps.map(() => ({ status: "pending" })));
+    setFinalComment("");
+    setSummaryOpen(false);
+    setSaved(false);
+    setLoaded(true);
   }, [routineId]);
 
   const step = steps[currentIdx];
@@ -93,23 +150,51 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
   const total = steps.length;
   const pct = total > 0 ? Math.round(((currentIdx + 1) / total) * 100) : 0;
 
-  const setRating = (rating: number) =>
-    setProgress((p) => p.map((s, i) => i === currentIdx ? { ...s, status: "rated", rating } : s));
+  const setRating = (rating: number) => {
+    const updated = progress.map((s, i) => i === currentIdx ? { ...s, status: "rated" as const, rating } : s);
+    setProgress(updated);
+    persist(currentIdx, updated, finalComment, false, steps, routineId);
+  };
 
-  const skip = () =>
-    setProgress((p) => p.map((s, i) => i === currentIdx ? { ...s, status: "skipped" } : s));
+  const skip = () => {
+    const updated = progress.map((s, i) => i === currentIdx ? { ...s, status: "skipped" as const } : s);
+    setProgress(updated);
+    persist(currentIdx, updated, finalComment, false, steps, routineId);
+  };
 
-  const setNote = (note: string) =>
-    setProgress((p) => p.map((s, i) => i === currentIdx ? { ...s, note } : s));
+  const setNote = (note: string) => {
+    const updated = progress.map((s, i) => i === currentIdx ? { ...s, note } : s);
+    setProgress(updated);
+    persist(currentIdx, updated, finalComment, false, steps, routineId);
+  };
+
+  const updateFinalComment = (comment: string) => {
+    setFinalComment(comment);
+    persist(currentIdx, progress, comment, summaryOpen, steps, routineId);
+  };
 
   const goNext = () => {
     if (currentIdx + 1 >= steps.length) return;
-    setDirection(1); setCurrentIdx((i) => i + 1); setNoteOpen(false);
+    const newIdx = currentIdx + 1;
+    setDirection(1);
+    setCurrentIdx(newIdx);
+    setNoteOpen(false);
+    persist(newIdx, progress, finalComment, false, steps, routineId);
   };
 
   const goPrev = () => {
     if (currentIdx <= 0) return;
-    setDirection(-1); setCurrentIdx((i) => i - 1); setNoteOpen(false);
+    const newIdx = currentIdx - 1;
+    setDirection(-1);
+    setCurrentIdx(newIdx);
+    setNoteOpen(false);
+    persist(newIdx, progress, finalComment, false, steps, routineId);
+  };
+
+  const openSummary = () => {
+    setNoteOpen(false);
+    setSummaryOpen(true);
+    persist(currentIdx, progress, finalComment, false, steps, routineId);
   };
 
   const handleFinish = async () => {
@@ -126,6 +211,7 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
       });
       await saveSession({ routineId, steps: stepRecords, finalComment });
       setSaved(true);
+      persist(currentIdx, progress, finalComment, true, steps, routineId);
     } catch (e) {
       console.error("Error saving session:", e);
     } finally {
@@ -139,7 +225,7 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
     return `${(p as any).rating}/5`;
   };
 
-  if (steps.length === 0) {
+  if (!loaded || steps.length === 0) {
     return (
       <div className="bg-white rounded-3xl p-6 border border-[rgba(44,95,63,0.08)] shadow-sm text-center">
         <div className="w-12 h-12 rounded-2xl bg-[#EAF0EB] flex items-center justify-center text-xl mx-auto mb-3">🎤</div>
@@ -152,11 +238,11 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
     );
   }
 
+  // ── Summary ───────────────────────────────────────────────
   if (summaryOpen) {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         className="bg-white rounded-3xl p-5 border border-[rgba(44,95,63,0.08)] shadow-sm">
-
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-[20px] text-[#1C2B22]"
             style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic" }}>
@@ -197,37 +283,37 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
           </p>
           <textarea
             className="w-full bg-[#F9F8F5] border border-[rgba(44,95,63,0.12)] rounded-2xl px-4 py-3 text-[13px] text-[#1C2B22] placeholder:text-[#B5C4B9] focus:outline-none focus:ring-2 focus:ring-[rgba(44,95,63,0.2)] resize-none"
-            rows={3}
-            placeholder="Anything to remember about today's warmup?"
+            rows={3} placeholder="Anything to remember about today's warmup?"
             value={finalComment}
-            onChange={(e) => setFinalComment(e.target.value)}
+            onChange={(e) => updateFinalComment(e.target.value)}
             disabled={saved}
           />
         </div>
 
-        {saved ? (
-          <div className="flex items-center justify-center gap-2 h-11 rounded-full bg-[#EAF0EB] border border-[rgba(44,95,63,0.15)]">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M2 7L5.5 10.5L12 3" stroke="#2C5F3F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span className="text-[13px] font-semibold text-[#2C5F3F]">Saved to journal</span>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <button onClick={() => setSummaryOpen(false)}
-              className="flex-1 h-11 rounded-full border border-[rgba(44,95,63,0.2)] text-[13px] font-semibold text-[#5A7A65] hover:bg-[#F5F2EC] transition-colors">
-              Back
-            </button>
+        <div className="flex gap-2">
+          <button onClick={() => setSummaryOpen(false)}
+            className="h-11 px-5 rounded-full border border-[rgba(44,95,63,0.2)] text-[13px] font-semibold text-[#5A7A65] hover:bg-[#F5F2EC] transition-colors shrink-0">
+            ← Back
+          </button>
+          {saved ? (
+            <div className="flex-1 flex items-center justify-center gap-2 h-11 rounded-full bg-[#EAF0EB] border border-[rgba(44,95,63,0.15)]">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 7L5.5 10.5L12 3" stroke="#2C5F3F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span className="text-[13px] font-semibold text-[#2C5F3F]">Saved to journal</span>
+            </div>
+          ) : (
             <button onClick={handleFinish} disabled={saving}
               className="flex-1 h-11 rounded-full bg-[#2C5F3F] text-white text-[13px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-60">
               {saving ? "Saving..." : "Finish & save →"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </motion.div>
     );
   }
 
+  // ── Main runner ───────────────────────────────────────────
   return (
     <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm overflow-hidden">
       <div className="px-5 pt-5 pb-4">
@@ -251,11 +337,14 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
           className="px-5 pb-5">
 
           <div className="flex items-center gap-2 mb-3">
-            <span className="inline-flex w-6 h-6 rounded-full bg-[#EAF0EB] text-[10px] font-bold text-[#2C5F3F] items-center justify-center shrink-0">{currentIdx + 1}</span>
+            <span className="inline-flex w-6 h-6 rounded-full bg-[#EAF0EB] text-[10px] font-bold text-[#2C5F3F] items-center justify-center shrink-0">
+              {currentIdx + 1}
+            </span>
             <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${
               isDone ? "bg-[#EAF0EB] text-[#2C5F3F]" : "bg-[#F5F2EC] text-[#8FA896] border border-[rgba(44,95,63,0.12)]"
             }`}>
-              {currentProgress?.status === "rated" ? `★ ${(currentProgress as any).rating}/5` : currentProgress?.status === "skipped" ? "Skipped" : "Current"}
+              {currentProgress?.status === "rated" ? `★ ${(currentProgress as any).rating}/5` :
+               currentProgress?.status === "skipped" ? "Skipped" : "Current"}
             </span>
           </div>
 
@@ -306,7 +395,7 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
               Back
             </motion.button>
             {currentIdx === total - 1 && isDone ? (
-              <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setNoteOpen(false); setSummaryOpen(true); }}
+              <motion.button whileTap={{ scale: 0.97 }} onClick={openSummary}
                 className="h-10 px-6 rounded-full bg-[#2C5F3F] text-white text-[13px] font-semibold active:scale-95">
                 View summary →
               </motion.button>
@@ -324,8 +413,7 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
         <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3">Routine track</p>
         <div className="space-y-1.5">
           {steps.map((s, i) => {
-            const p = progress[i];
-            const isCurrent = i === currentIdx;
+            const p = progress[i]; const isCurrent = i === currentIdx;
             return (
               <div key={s.id} className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 border transition-all ${
                 isCurrent ? "bg-[#EAF0EB] border-[rgba(44,95,63,0.2)]" : "bg-[#F9F8F5] border-[rgba(44,95,63,0.06)]"

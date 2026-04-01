@@ -2,14 +2,12 @@ import { db, auth } from "@/lib/firebase";
 import {
   doc, setDoc, getDoc, collection, getDocs, orderBy, query, limit,
 } from "firebase/firestore";
-
-export const today = () => new Date().toISOString().split("T")[0];
+import { getAppDate, getLocalTimestamp } from "@/lib/dateUtils";
 
 function clean<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj, (_, v) => (v === undefined ? null : v)));
 }
 
-// ── Get current user's base path ─────────────────────────────
 function userBase() {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Not authenticated");
@@ -34,9 +32,9 @@ export type SessionRecord = {
 };
 
 export async function saveSession(data: Omit<SessionRecord, "date" | "completedAt">) {
-  const date = today();
+  const date = getAppDate();
   const ref = doc(db, `${userBase()}/sessions`, date);
-  await setDoc(ref, clean({ ...data, date, completedAt: new Date().toISOString() }));
+  await setDoc(ref, clean({ ...data, date, completedAt: getLocalTimestamp() }));
 }
 
 export async function getSession(date: string): Promise<SessionRecord | null> {
@@ -70,9 +68,9 @@ export type DayShows = {
 };
 
 export async function saveShows(shows: ShowRecord[]) {
-  const date = today();
+  const date = getAppDate();
   const ref = doc(db, `${userBase()}/shows`, date);
-  await setDoc(ref, clean({ date, shows, savedAt: new Date().toISOString() }));
+  await setDoc(ref, clean({ date, shows, savedAt: getLocalTimestamp() }));
 }
 
 export async function getShows(date: string): Promise<DayShows | null> {
@@ -98,9 +96,9 @@ export type CoolDownRecord = {
 };
 
 export async function saveCoolDown(data: Omit<CoolDownRecord, "date" | "completedAt">) {
-  const date = today();
+  const date = getAppDate();
   const ref = doc(db, `${userBase()}/cooldowns`, date);
-  await setDoc(ref, clean({ ...data, date, completedAt: new Date().toISOString() }));
+  await setDoc(ref, clean({ ...data, date, completedAt: getLocalTimestamp() }));
 }
 
 export async function getRecentCoolDowns(count = 14): Promise<CoolDownRecord[]> {
@@ -120,9 +118,10 @@ export async function getStreak(): Promise<number> {
   let current = new Date();
   current.setHours(0, 0, 0, 0);
   for (const dateStr of dates) {
-    const d = new Date(dateStr + "T00:00:00");
-    const diff = Math.floor((current.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff <= 1) { streak++; current = d; } else break;
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    const diff = Math.floor((current.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff <= 1) { streak++; current = date; } else break;
   }
   return streak;
 }
@@ -141,5 +140,9 @@ export async function getSessionsThisWeek(): Promise<number> {
   const sessions = await getRecentSessions(7);
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
-  return sessions.filter((s) => new Date(s.date + "T00:00:00") >= weekAgo).length;
+  weekAgo.setHours(0, 0, 0, 0);
+  return sessions.filter((s) => {
+    const [y, m, d] = s.date.split("-").map(Number);
+    return new Date(y, m - 1, d) >= weekAgo;
+  }).length;
 }

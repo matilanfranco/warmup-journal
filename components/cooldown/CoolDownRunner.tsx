@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AUDIO_LIBRARY } from "@/components/data/audioLibrary";
 import CoolDownAudioPlayer from "@/components/cooldown/CoolDownAudioPlayer";
 import { saveCoolDown, StepRecord } from "@/lib/firebaseService";
+import { getAppDate } from "@/lib/dateUtils";
 
 const PERSONAL_KEY = "cooldownRoutineItems";
+const PROGRESS_KEY = "cooldownProgress";
 
 const PRESET_ITEMS: Record<string, string[]> = {
   "cd-breath-release": ["gorilla", "lip-buzz-cold-down", "lip-buzzes"],
@@ -19,6 +21,15 @@ type StepProgress =
   | { status: "pending"; note?: string }
   | { status: "skipped"; note?: string }
   | { status: "rated"; rating: number; note?: string };
+
+type PersistedState = {
+  date: string;
+  routineId: string;
+  currentIdx: number;
+  progress: StepProgress[];
+  finalComment: string;
+  completed: boolean;
+};
 
 function buildSteps(audioIds: string[]): RoutineStep[] {
   return audioIds.map((id, i) => {
@@ -49,6 +60,17 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
   const [direction, setDirection] = useState<1 | -1>(1);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const persist = useCallback((
+    idx: number, prog: StepProgress[], comment: string, completed: boolean, rId: string
+  ) => {
+    const state: PersistedState = {
+      date: getAppDate(), routineId: rId, currentIdx: idx,
+      progress: prog, finalComment: comment, completed,
+    };
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(state));
+  }, []);
 
   useEffect(() => {
     let ids: string[] = [];
@@ -61,8 +83,28 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
     }
     const newSteps = buildSteps(ids);
     setSteps(newSteps);
+
+    // Try to restore today's progress
+    try {
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (raw) {
+        const saved: PersistedState = JSON.parse(raw);
+        if (saved.date === getAppDate() && saved.routineId === routineId) {
+          setCurrentIdx(saved.currentIdx);
+          const merged: StepProgress[] = newSteps.map((_, i) => saved.progress[i] ?? { status: "pending" });
+          setProgress(merged);
+          setFinalComment(saved.finalComment ?? "");
+          if (saved.completed) { setSummaryOpen(true); setSaved(true); }
+          setLoaded(true);
+          return;
+        }
+      }
+    } catch {}
+
+    setCurrentIdx(0);
     setProgress(newSteps.map(() => ({ status: "pending" })));
-    setCurrentIdx(0); setSummaryOpen(false); setFinalComment(""); setSaved(false);
+    setFinalComment(""); setSummaryOpen(false); setSaved(false);
+    setLoaded(true);
   }, [routineId]);
 
   const step = steps[currentIdx];
@@ -71,14 +113,47 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
   const total = steps.length;
   const pct = total > 0 ? Math.round(((currentIdx + 1) / total) * 100) : 0;
 
-  const setRating = (rating: number) =>
-    setProgress((p) => p.map((s, i) => i === currentIdx ? { ...s, status: "rated", rating } : s));
-  const skip = () =>
-    setProgress((p) => p.map((s, i) => i === currentIdx ? { ...s, status: "skipped" } : s));
-  const setNote = (note: string) =>
-    setProgress((p) => p.map((s, i) => i === currentIdx ? { ...s, note } : s));
-  const goNext = () => { if (currentIdx + 1 >= steps.length) return; setDirection(1); setCurrentIdx((i) => i + 1); setNoteOpen(false); };
-  const goPrev = () => { if (currentIdx <= 0) return; setDirection(-1); setCurrentIdx((i) => i - 1); setNoteOpen(false); };
+  const setRating = (rating: number) => {
+    const updated = progress.map((s, i) => i === currentIdx ? { ...s, status: "rated" as const, rating } : s);
+    setProgress(updated);
+    persist(currentIdx, updated, finalComment, false, routineId);
+  };
+
+  const skip = () => {
+    const updated = progress.map((s, i) => i === currentIdx ? { ...s, status: "skipped" as const } : s);
+    setProgress(updated);
+    persist(currentIdx, updated, finalComment, false, routineId);
+  };
+
+  const setNote = (note: string) => {
+    const updated = progress.map((s, i) => i === currentIdx ? { ...s, note } : s);
+    setProgress(updated);
+    persist(currentIdx, updated, finalComment, false, routineId);
+  };
+
+  const updateFinalComment = (comment: string) => {
+    setFinalComment(comment);
+    persist(currentIdx, progress, comment, summaryOpen, routineId);
+  };
+
+  const goNext = () => {
+    if (currentIdx + 1 >= steps.length) return;
+    const newIdx = currentIdx + 1;
+    setDirection(1); setCurrentIdx(newIdx); setNoteOpen(false);
+    persist(newIdx, progress, finalComment, false, routineId);
+  };
+
+  const goPrev = () => {
+    if (currentIdx <= 0) return;
+    const newIdx = currentIdx - 1;
+    setDirection(-1); setCurrentIdx(newIdx); setNoteOpen(false);
+    persist(newIdx, progress, finalComment, false, routineId);
+  };
+
+  const openSummary = () => {
+    setNoteOpen(false); setSummaryOpen(true);
+    persist(currentIdx, progress, finalComment, false, routineId);
+  };
 
   const handleFinish = async () => {
     setSaving(true);
@@ -89,6 +164,7 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
       });
       await saveCoolDown({ steps: stepRecords, finalComment });
       setSaved(true);
+      persist(currentIdx, progress, finalComment, true, routineId);
     } catch (e) { console.error(e); } finally { setSaving(false); }
   };
 
@@ -98,9 +174,9 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
     return `${(p as any).rating}/5`;
   };
 
-  if (steps.length === 0) {
+  if (!loaded || steps.length === 0) {
     return (
-      <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 border border-[rgba(107,91,158,0.12)] shadow-sm text-center">
+      <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 border border-[rgba(107,91,158,0.12)] shadow-sm text-center">
         <div className="w-12 h-12 rounded-2xl bg-[#EDE8F8] flex items-center justify-center text-xl mx-auto mb-3">🌙</div>
         <p className="text-[14px] font-semibold text-[#2D2650] mb-1">No exercises yet</p>
         <p className="text-[12px] text-[#9B8EC4] mb-4">Build your cool down routine first.</p>
@@ -109,6 +185,7 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
     );
   }
 
+  // ── Summary ───────────────────────────────────────────────
   if (summaryOpen) {
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -119,9 +196,11 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
           </h2>
           <span className="text-[11px] px-3 py-1 rounded-full bg-[#EDE8F8] text-[#6B5B9E] font-semibold border border-[rgba(107,91,158,0.15)]">✓ Done</span>
         </div>
+
         <div className="h-1.5 w-full bg-[#EDE8F8] rounded-full mb-5 overflow-hidden">
           <div className="h-full w-full bg-[#6B5B9E] rounded-full" />
         </div>
+
         <div className="space-y-2 mb-5">
           {steps.map((s, i) => {
             const p = progress[i];
@@ -141,29 +220,36 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
             );
           })}
         </div>
+
         <div className="mb-4">
           <p className="text-[12px] font-semibold text-[#2D2650] mb-2">Final note <span className="text-[#9B8EC4] font-normal">(optional)</span></p>
           <textarea className="w-full bg-[#F8F5FF] border border-[rgba(107,91,158,0.12)] rounded-2xl px-4 py-3 text-[13px] text-[#2D2650] placeholder:text-[#C4B8E8] focus:outline-none focus:ring-2 focus:ring-[rgba(107,91,158,0.2)] resize-none"
             rows={3} placeholder="How did your voice feel after resting?"
-            value={finalComment} onChange={(e) => setFinalComment(e.target.value)} disabled={saved} />
+            value={finalComment} onChange={(e) => updateFinalComment(e.target.value)} disabled={saved} />
         </div>
-        {saved ? (
-          <div className="flex items-center justify-center gap-2 h-11 rounded-full bg-[#EDE8F8] border border-[rgba(107,91,158,0.15)]">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 3" stroke="#6B5B9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            <span className="text-[13px] font-semibold text-[#6B5B9E]">Saved to journal</span>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <button onClick={() => setSummaryOpen(false)} className="flex-1 h-11 rounded-full border border-[rgba(107,91,158,0.2)] text-[13px] font-semibold text-[#9B8EC4] hover:bg-[#F8F5FF] transition-colors">Back</button>
-            <button onClick={handleFinish} disabled={saving} className="flex-1 h-11 rounded-full bg-[#6B5B9E] text-white text-[13px] font-semibold active:scale-[0.98] disabled:opacity-60">
+
+        <div className="flex gap-2">
+          <button onClick={() => setSummaryOpen(false)}
+            className="h-11 px-5 rounded-full border border-[rgba(107,91,158,0.2)] text-[13px] font-semibold text-[#9B8EC4] hover:bg-[#F8F5FF] transition-colors shrink-0">
+            ← Back
+          </button>
+          {saved ? (
+            <div className="flex-1 flex items-center justify-center gap-2 h-11 rounded-full bg-[#EDE8F8] border border-[rgba(107,91,158,0.15)]">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 3" stroke="#6B5B9E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span className="text-[13px] font-semibold text-[#6B5B9E]">Saved to journal</span>
+            </div>
+          ) : (
+            <button onClick={handleFinish} disabled={saving}
+              className="flex-1 h-11 rounded-full bg-[#6B5B9E] text-white text-[13px] font-semibold active:scale-[0.98] disabled:opacity-60">
               {saving ? "Saving..." : "Finish & save →"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </motion.div>
     );
   }
 
+  // ── Main runner ───────────────────────────────────────────
   return (
     <div className="bg-white/90 backdrop-blur-sm rounded-3xl border border-[rgba(107,91,158,0.12)] shadow-sm overflow-hidden">
       <div className="px-5 pt-5 pb-4">
@@ -172,12 +258,17 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
           <span className="text-[12px] font-bold text-[#6B5B9E]">{pct}%</span>
         </div>
         <div className="h-1.5 w-full bg-[#EDE8F8] rounded-full overflow-hidden">
-          <motion.div className="h-full bg-[#6B5B9E] rounded-full" animate={{ width: `${pct}%` }} transition={{ type: "spring", stiffness: 120, damping: 20 }} />
+          <motion.div className="h-full bg-[#6B5B9E] rounded-full"
+            animate={{ width: `${pct}%` }} transition={{ type: "spring", stiffness: 120, damping: 20 }} />
         </div>
       </div>
 
       <AnimatePresence mode="wait">
-        <motion.div key={step.id} initial={{ opacity: 0, x: direction * 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: direction * -16 }} transition={{ duration: 0.18 }} className="px-5 pb-5">
+        <motion.div key={step.id}
+          initial={{ opacity: 0, x: direction * 16 }} animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: direction * -16 }} transition={{ duration: 0.18 }}
+          className="px-5 pb-5">
+
           <div className="flex items-center gap-2 mb-3">
             <span className="inline-flex w-6 h-6 rounded-full bg-[#EDE8F8] text-[10px] font-bold text-[#6B5B9E] items-center justify-center shrink-0">{currentIdx + 1}</span>
             <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full ${isDone ? "bg-[#EDE8F8] text-[#6B5B9E]" : "bg-[#F8F5FF] text-[#9B8EC4] border border-[rgba(107,91,158,0.12)]"}`}>
@@ -195,22 +286,26 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
             <p className="text-[11px] text-[#9B8EC4] mb-3">Rate or skip to continue.</p>
             <div className="flex items-center gap-2">
               {[1, 2, 3, 4, 5].map((r) => (
-                <RatingButton key={r} value={r} selected={currentProgress?.status === "rated" && (currentProgress as any).rating === r} onClick={() => setRating(r)} />
+                <RatingButton key={r} value={r}
+                  selected={currentProgress?.status === "rated" && (currentProgress as any).rating === r}
+                  onClick={() => setRating(r)} />
               ))}
               <motion.button whileTap={{ scale: 0.95 }} onClick={skip}
-                className={`h-10 px-4 rounded-xl text-[12px] font-semibold border transition-all ${currentProgress?.status === "skipped" ? "bg-[#FEF3E2] text-amber-700 border-amber-200" : "bg-white text-[#9B8EC4] border-[rgba(107,91,158,0.15)] hover:bg-[#FEF3E2] hover:text-amber-700"}`}>
-                Skip
-              </motion.button>
+                className={`h-10 px-4 rounded-xl text-[12px] font-semibold border transition-all ${
+                  currentProgress?.status === "skipped" ? "bg-[#FEF3E2] text-amber-700 border-amber-200" : "bg-white text-[#9B8EC4] border-[rgba(107,91,158,0.15)] hover:bg-[#FEF3E2] hover:text-amber-700"
+                }`}>Skip</motion.button>
             </div>
           </div>
 
           <div className="mb-5">
-            <button onClick={() => setNoteOpen((v) => !v)} className="text-[12px] text-[#9B8EC4] hover:text-[#6B5B9E] transition-colors underline underline-offset-2">
+            <button onClick={() => setNoteOpen((v) => !v)}
+              className="text-[12px] text-[#9B8EC4] hover:text-[#6B5B9E] transition-colors underline underline-offset-2">
               {noteOpen ? "Hide note" : "Add note (optional)"}
             </button>
             {noteOpen && (
               <textarea className="mt-2 w-full bg-[#F8F5FF] border border-[rgba(107,91,158,0.12)] rounded-2xl px-4 py-3 text-[13px] text-[#2D2650] placeholder:text-[#C4B8E8] focus:outline-none focus:ring-2 focus:ring-[rgba(107,91,158,0.2)] resize-none"
-                rows={2} placeholder="Optional note..." value={currentProgress?.note ?? ""} onChange={(e) => setNote(e.target.value)} />
+                rows={2} placeholder="Optional note..."
+                value={currentProgress?.note ?? ""} onChange={(e) => setNote(e.target.value)} />
             )}
           </div>
 
@@ -220,7 +315,7 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
               Back
             </motion.button>
             {currentIdx === total - 1 && isDone ? (
-              <motion.button whileTap={{ scale: 0.97 }} onClick={() => { setNoteOpen(false); setSummaryOpen(true); }}
+              <motion.button whileTap={{ scale: 0.97 }} onClick={openSummary}
                 className="h-10 px-6 rounded-full bg-[#6B5B9E] text-white text-[13px] font-semibold active:scale-95">
                 View summary →
               </motion.button>
