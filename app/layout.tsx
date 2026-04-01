@@ -22,6 +22,16 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "The Daily Singer",
   description: "Your daily voice routine journal",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon-1024.png",
+    shortcut: "/icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "The Daily Singer",
+  },
 };
 
 export default function RootLayout({
