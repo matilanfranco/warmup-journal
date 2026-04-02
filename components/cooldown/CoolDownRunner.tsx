@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AUDIO_LIBRARY } from "@/components/data/audioLibrary";
 import CoolDownAudioPlayer from "@/components/cooldown/CoolDownAudioPlayer";
-import { saveCoolDown, StepRecord } from "@/lib/firebaseService";
+import { saveCoolDown, StepRecord, saveMotivationMessage } from "@/lib/firebaseService";
 import { getAppDate } from "@/lib/dateUtils";
 
 const PERSONAL_KEY = "cooldownRoutineItems";
@@ -60,6 +60,7 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
   const [direction, setDirection] = useState<1 | -1>(1);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [motivationMsg, setMotivationMsg] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   const persist = useCallback((
@@ -163,6 +164,7 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
         return { title: s.title, status: p?.status ?? "pending", rating: p?.status === "rated" ? (p as any).rating : null, note: p?.note ?? null };
       });
       await saveCoolDown({ steps: stepRecords, finalComment });
+      if (motivationMsg.trim()) await saveMotivationMessage(motivationMsg.trim());
       setSaved(true);
       persist(currentIdx, progress, finalComment, true, routineId);
     } catch (e) { console.error(e); } finally { setSaving(false); }
@@ -226,6 +228,23 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
           <textarea className="w-full bg-[#F8F5FF] border border-[rgba(107,91,158,0.12)] rounded-2xl px-4 py-3 text-[13px] text-[#2D2650] placeholder:text-[#C4B8E8] focus:outline-none focus:ring-2 focus:ring-[rgba(107,91,158,0.2)] resize-none"
             rows={3} placeholder="How did your voice feel after resting?"
             value={finalComment} onChange={(e) => updateFinalComment(e.target.value)} disabled={saved} />
+        </div>
+
+        <div className="mb-4 rounded-2xl bg-[#F8F5FF] border border-[rgba(107,91,158,0.12)] p-4">
+          <p className="text-[12px] font-semibold text-[#2D2650] mb-0.5">
+            A message for tomorrow's Molly ✨
+          </p>
+          <p className="text-[11px] text-[#9B8EC4] mb-2">
+            She'll see this before her next warmup. <span className="italic">Optional.</span>
+          </p>
+          <textarea
+            className="w-full bg-white border border-[rgba(107,91,158,0.12)] rounded-xl px-3.5 py-2.5 text-[13px] text-[#2D2650] placeholder:text-[#C4B8E8] focus:outline-none focus:ring-2 focus:ring-[rgba(107,91,158,0.2)] resize-none"
+            rows={3}
+            placeholder="e.g. You showed up tonight even when it was hard. Remember that feeling."
+            value={motivationMsg}
+            onChange={(e) => setMotivationMsg(e.target.value)}
+            disabled={saved}
+          />
         </div>
 
         <div className="flex gap-2">

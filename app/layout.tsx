@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Header";
@@ -22,16 +22,23 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "The Daily Singer",
   description: "Your daily voice routine journal",
-  icons: {
-    icon: "/icon.png",
-    apple: "/icon-1024.png",
-    shortcut: "/icon.png",
-  },
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "The Daily Singer",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#2C5F3F",
 };
 
 export default function RootLayout({
@@ -41,6 +48,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${dmSans.variable} ${playfair.variable}`}>
+      <head>
+        <link rel="apple-touch-icon" href="/icon.png" />
+      </head>
       <body className="min-h-screen bg-[#F5F2EC] text-[#1C2B22] overflow-x-hidden font-sans">
         <AuthProvider>
           <AuthGuard>

@@ -146,3 +146,58 @@ export async function getSessionsThisWeek(): Promise<number> {
     return new Date(y, m - 1, d) >= weekAgo;
   }).length;
 }
+
+// ─── DAILY CHECK-IN ─────────────────────────────────────────
+
+export type CheckIn = {
+  date: string;
+  water: boolean | null;
+  steam: boolean | null;
+  sleep: boolean | null;
+  caffeine: boolean | null;
+  gym: "none" | "light" | "heavy" | null;
+  alcohol: boolean | null;
+  feeling: "energized" | "balanced" | "tired" | "struggling" | null;
+  completedAt: string;
+};
+
+export async function saveCheckIn(data: Omit<CheckIn, "date" | "completedAt">) {
+  const date = getAppDate();
+  const ref = doc(db, `${userBase()}/checkins`, date);
+  await setDoc(ref, clean({ ...data, date, completedAt: getLocalTimestamp() }));
+}
+
+export async function getCheckIn(date: string): Promise<CheckIn | null> {
+  const ref = doc(db, `${userBase()}/checkins`, date);
+  const snap = await getDoc(ref);
+  return snap.exists() ? (snap.data() as CheckIn) : null;
+}
+
+// ─── MOTIVATION MESSAGE ──────────────────────────────────────
+
+export type MotivationMessage = {
+  date: string;
+  message: string;
+  savedAt: string;
+};
+
+export async function saveMotivationMessage(message: string) {
+  const date = getAppDate();
+  const ref = doc(db, `${userBase()}/motivation`, date);
+  await setDoc(ref, clean({ date, message, savedAt: getLocalTimestamp() }));
+}
+
+export async function getYesterdayMessage(): Promise<MotivationMessage | null> {
+  try {
+    const yesterday = new Date();
+    if (yesterday.getHours() < 6) yesterday.setDate(yesterday.getDate() - 2);
+    else yesterday.setDate(yesterday.getDate() - 1);
+    const y = yesterday.getFullYear();
+    const m = String(yesterday.getMonth() + 1).padStart(2, "0");
+    const d = String(yesterday.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${m}-${d}`;
+    const ref = doc(db, `${userBase()}/motivation`, dateStr);
+    const snap = await getDoc(ref);
+    return snap.exists() ? (snap.data() as MotivationMessage) : null;
+  } catch { return null; }
+}

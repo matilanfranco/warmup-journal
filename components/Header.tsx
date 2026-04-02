@@ -110,15 +110,17 @@ export default function Header() {
           </div>
 
           {/* Desktop right — date + avatar */}
-          <div className={`hidden md:flex items-center gap-3 border-l ${p.divider} pl-4`}>
-            <div className="text-right">
-              <p className={`text-[10px] font-bold tracking-wide ${p.greeting}`}>{greeting()}, {firstName}</p>
-              <p className={`text-xs font-bold ${p.name}`}>{todayShort}</p>
+          <div className={`hidden md:flex items-center gap-3 border-l ${p.divider} pl-4 shrink-0`}>
+            <div className="text-right leading-tight">
+              <p className={`text-[10px] font-bold tracking-wide whitespace-nowrap ${p.greeting}`}>
+                {greeting()}, {firstName}
+              </p>
+              <p className={`text-[12px] font-bold whitespace-nowrap ${p.name}`}>{todayShort}</p>
             </div>
-            <button onClick={handleSignOut}
+            <Link href="/profile"
               className={`w-8 h-8 rounded-full border flex items-center justify-center text-[11px] font-bold shrink-0 transition-opacity hover:opacity-70 ${p.avatar}`}>
               {initials}
-            </button>
+            </Link>
           </div>
 
           {/* Mobile right */}
@@ -159,7 +161,11 @@ export default function Header() {
                     </Link>
                   );
                 })}
-                {/* Sign out in mobile menu */}
+                <Link href="/profile" onClick={() => setIsOpen(false)}
+                  className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-colors ${p.mobileInactive}`}>
+                  <span>Profile</span>
+                  <span className="opacity-40 text-xs">→</span>
+                </Link>
                 <button onClick={handleSignOut}
                   className={`w-full flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-colors ${p.mobileInactive}`}>
                   <span>Sign out</span>

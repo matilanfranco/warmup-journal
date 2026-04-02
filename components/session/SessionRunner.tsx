@@ -7,7 +7,7 @@ import AudioPlayer from "@/components/session/AudioPlayer";
 import { saveSession, StepRecord } from "@/lib/firebaseService";
 import { getAppDate } from "@/lib/dateUtils";
 
-type SessionRunnerProps = { routineId: string };
+type SessionRunnerProps = { routineId: string; showCheckInButton?: boolean; onOpenCheckIn?: () => void; };
 
 type RoutineStep = {
   id: string;
@@ -67,7 +67,7 @@ function RatingButton({ value, selected, onClick }: { value: number; selected: b
   );
 }
 
-export default function SessionRunner({ routineId }: SessionRunnerProps) {
+export default function SessionRunner({ routineId, showCheckInButton, onOpenCheckIn }: SessionRunnerProps) {
   const [steps, setSteps] = useState<RoutineStep[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [progress, setProgress] = useState<StepProgress[]>([]);
@@ -276,6 +276,14 @@ export default function SessionRunner({ routineId }: SessionRunnerProps) {
             );
           })}
         </div>
+
+        {showCheckInButton && onOpenCheckIn && (
+          <button onClick={onOpenCheckIn}
+            className="w-full h-10 rounded-2xl border border-[rgba(44,95,63,0.2)] bg-[#F5F2EC] text-[13px] font-semibold text-[#2C5F3F] hover:bg-[#EAF0EB] transition-colors mb-4 flex items-center justify-center gap-2">
+            <span className="text-base leading-none">✅</span>
+            Complete your quick check-in
+          </button>
+        )}
 
         <div className="mb-4">
           <p className="text-[12px] font-semibold text-[#1C2B22] mb-2">

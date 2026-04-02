@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getAudioById } from "@/components/data/audioLibrary";
-import { getStreak, getAvgRating, getSessionsThisWeek } from "@/lib/firebaseService";
+import { getStreak, getAvgRating, getSessionsThisWeek, getYesterdayMessage } from "@/lib/firebaseService";
 import { getAppDate } from "@/lib/dateUtils";
 
 const PERSONAL_ROUTINE_KEY = "personalRoutineItems";
@@ -20,6 +20,7 @@ export default function HeroCard() {
   const [thisWeek, setThisWeek] = useState<number>(0);
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [warmupStatus, setWarmupStatus] = useState<WarmupStatus>("not-started");
+  const [yesterdayMsg, setYesterdayMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(PERSONAL_ROUTINE_KEY);
@@ -49,7 +50,8 @@ export default function HeroCard() {
   useEffect(() => {
     async function loadStats() {
       try {
-        const [s, r, w] = await Promise.all([getStreak(), getAvgRating(), getSessionsThisWeek()]);
+        const [s, r, w, msg] = await Promise.all([getStreak(), getAvgRating(), getSessionsThisWeek(), getYesterdayMessage()]);
+        if (msg?.message) setYesterdayMsg(msg.message);
         setStreak(s); setAvgRating(r); setThisWeek(w);
       } catch (e) {
         console.error("Stats error:", e);
@@ -87,7 +89,19 @@ export default function HeroCard() {
     : { background: "linear-gradient(135deg, #2C5F3F 0%, #3D7A55 100%)", color: "white" };
 
   return (
-    <div className="mx-4 rounded-3xl overflow-hidden shadow-sm border border-white/60">
+    <div className="mx-4 flex flex-col gap-3">
+      {yesterdayMsg && (
+        <div className="rounded-2xl bg-white border border-[rgba(44,95,63,0.1)] px-4 py-3.5 shadow-sm">
+          <p className="text-[9px] font-black tracking-[2.5px] uppercase text-[#8FA896] mb-1.5">
+            🌙 A note from yesterday's Molly
+          </p>
+          <p className="text-[13px] text-[#1C2B22] leading-relaxed italic"
+            style={{ fontFamily: "'Playfair Display', serif" }}>
+            "{yesterdayMsg}"
+          </p>
+        </div>
+      )}
+    <div className="rounded-3xl overflow-hidden shadow-sm border border-white/60">
       <div className="relative px-5 pt-6 pb-5"
         style={{ backgroundImage: "url('/hero-bg.png')", backgroundSize: "cover", backgroundPosition: "center top" }}>
         <div className="absolute inset-0 bg-white/55" />
@@ -168,6 +182,7 @@ export default function HeroCard() {
           ))}
         </div>
       </div>
+    </div>
     </div>
   );
 }
