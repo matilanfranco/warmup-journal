@@ -160,6 +160,7 @@ function ShowForm({ index, initial, onSave, onCancel }: {
   const [show, setShow] = useState<ShowEntry>({ ...initial, feelings: initial.feelings ?? [] });
   const [showValidation, setShowValidation] = useState(false);
 
+
   const allRated = show.ratings.voice > 0 && show.ratings.energy > 0 &&
     show.ratings.confidence > 0 && show.ratings.range > 0;
 
@@ -302,9 +303,36 @@ export default function TodayShowsCard() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    if (!loaded) return; // 👈 ESTA LINEA
+
+    const today = new Date().toISOString().split("T")[0];
+    localStorage.setItem("shows", JSON.stringify(shows));
+    localStorage.setItem("shows_date", today);
+  }, [shows, loaded]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const savedDate = localStorage.getItem("shows_date");
+
+    if (savedDate && savedDate !== today) {
+      localStorage.removeItem("shows");
+      localStorage.setItem("shows_date", today);
+      setShows([null, null, null]);
+    }
+  }, []);
+
+  useEffect(() => {
     async function load() {
       try {
         const today = new Date().toISOString().split("T")[0];
+        const local = localStorage.getItem("shows");
+        const localDate = localStorage.getItem("shows_date");
+
+        if (local && localDate === today) {
+          setShows(JSON.parse(local));
+          setLoaded(true);
+          return;
+        }
         const data = await getShows(today);
         if (data && data.shows.length > 0) {
           const loaded = data.shows.map((s) => ({
