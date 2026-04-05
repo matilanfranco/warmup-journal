@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { saveShows, getShows } from "@/lib/firebaseService";
+import { markShowsLogged } from "@/lib/notifications";
 
 type RatingKey = "voice" | "energy" | "confidence" | "range";
 
@@ -335,6 +336,7 @@ export default function TodayShowsCard() {
         feeling: s.feelings[0] ?? null, feelings: s.feelings, note: s.note,
       })));
       setSavedAt(new Date().toISOString());
+      markShowsLogged();
     } catch (e) {
       console.error("Error saving shows:", e);
     } finally {

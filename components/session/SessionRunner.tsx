@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getAudioById } from "@/components/data/audioLibrary";
 import AudioPlayer from "@/components/session/AudioPlayer";
 import { saveSession, StepRecord } from "@/lib/firebaseService";
+import { scheduleWarmupReminder } from "@/lib/notifications";
 import { getAppDate } from "@/lib/dateUtils";
 
 type SessionRunnerProps = { routineId: string; showCheckInButton?: boolean; onOpenCheckIn?: () => void; };
@@ -154,6 +155,8 @@ export default function SessionRunner({ routineId, showCheckInButton, onOpenChec
     const updated = progress.map((s, i) => i === currentIdx ? { ...s, status: "rated" as const, rating } : s);
     setProgress(updated);
     persist(currentIdx, updated, finalComment, false, steps, routineId);
+    // Schedule reminder on first interaction
+    scheduleWarmupReminder();
   };
 
   const skip = () => {

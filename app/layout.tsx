@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import BottomNav from "../components/BottomNav";
 import { AuthProvider } from "@/lib/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
+import SWRegister from "@/components/SWRegister";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -53,6 +54,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-[#F5F2EC] text-[#1C2B22] overflow-x-hidden font-sans">
         <AuthProvider>
+          <SWRegister />
           <AuthGuard>
             <Header />
             <div className="mx-auto max-w-md pb-24">
