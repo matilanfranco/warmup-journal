@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getRecentSessions, getRecentShows, getRecentCoolDowns, SessionRecord, DayShows, CoolDownRecord } from "@/lib/firebaseService";
+import { getRecentSessions, getRecentShows, getRecentCoolDowns, getRecentRestDays, SessionRecord, DayShows, CoolDownRecord, RestDayData } from "@/lib/firebaseService";
+import { useMemo } from "react";
 
 type DayEntry = {
   date: string;
   session?: SessionRecord;
   shows?: DayShows;
   cooldown?: CoolDownRecord;
+  restDay?: RestDayData;
 };
 
 const RATING_LABELS = [
@@ -97,15 +99,19 @@ function ShowCard({ show }: { show: any }) {
 
 export default function HistoryPage() {
   const [entries, setEntries] = useState<DayEntry[]>([]);
+  const [rawShows, setRawShows] = useState<DayShows[]>([]);
+  const [rawSessions, setRawSessions] = useState<SessionRecord[]>([]);
+  const [rawRestDays, setRawRestDays] = useState<RestDayData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [sessions, shows, cooldowns] = await Promise.all([
+        const [sessions, shows, cooldowns, restDays] = await Promise.all([
           getRecentSessions(20),
           getRecentShows(20),
           getRecentCoolDowns(20),
+          getRecentRestDays(20),
         ]);
         const map: Record<string, DayEntry> = {};
         sessions.forEach((s) => { map[s.date] = { date: s.date, session: s }; });
@@ -117,7 +123,16 @@ export default function HistoryPage() {
           if (map[c.date]) map[c.date].cooldown = c;
           else map[c.date] = { date: c.date, cooldown: c };
         });
-        setEntries(Object.values(map).sort((a, b) => b.date.localeCompare(a.date)));
+        restDays.forEach((r) => {
+          if (map[r.date]) map[r.date].restDay = r;
+          else map[r.date] = { date: r.date, restDay: r };
+        });
+        const sorted = Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
+        setEntries(sorted);
+        // Store raw data for rest day summaries
+        setRawShows(shows);
+        setRawSessions(sessions);
+        setRawRestDays(restDays);
       } catch (e) {
         console.error(e);
       } finally {
@@ -156,7 +171,10 @@ export default function HistoryPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {entries.map((entry) => <DayCard key={entry.date} entry={entry} />)}
+            {entries.map((entry) => (
+              <DayCard key={entry.date} entry={entry}
+                allShows={rawShows} allSessions={rawSessions} allRestDays={rawRestDays} />
+            ))}
           </div>
         )}
       </div>
@@ -164,12 +182,22 @@ export default function HistoryPage() {
   );
 }
 
-function DayCard({ entry }: { entry: DayEntry }) {
+function DayCard({ entry, allShows, allSessions, allRestDays }: {
+  entry: DayEntry;
+  allShows: DayShows[];
+  allSessions: SessionRecord[];
+  allRestDays: RestDayData[];
+}) {
   const [open, setOpen] = useState(false);
   const { session, shows } = entry;
   const avg = session ? avgRating(session) : null;
   const completedSteps = session?.steps.filter((s) => s.status === "rated").length ?? 0;
   const totalSteps = session?.steps.length ?? 0;
+
+  // Compute run summary for rest day
+  const allShowsFlat = allShows.flatMap((d) => d.shows.map((s) => ({ ...s, date: d.date })));
+  const allSessionsFlat = allSessions;
+  const prevRestDaysFor = (date: string) => allRestDays.filter((r) => r.date < date);
 
   return (
     <div className="bg-white rounded-2xl border border-[rgba(44,95,63,0.08)] shadow-sm overflow-hidden">
@@ -193,6 +221,11 @@ function DayCard({ entry }: { entry: DayEntry }) {
             {entry.cooldown && (
               <span className="text-[11px] font-medium text-[#3D5A8A] bg-[#DDE6F5] px-2 py-0.5 rounded-full border border-[rgba(61,90,138,0.15)] whitespace-nowrap">
                 🌙 Cool down
+              </span>
+            )}
+            {entry.restDay && (
+              <span className="text-[11px] font-medium text-[#2A7EBF] bg-[#EEF7FF] px-2 py-0.5 rounded-full border border-[rgba(42,126,191,0.2)] whitespace-nowrap">
+                ☀️ Rest day
               </span>
             )}
           </div>
@@ -257,6 +290,11 @@ function DayCard({ entry }: { entry: DayEntry }) {
             </div>
           )}
 
+          {/* Rest day section */}
+          {entry.restDay && (
+            <RestDayHistorySection date={entry.date} restDay={entry.restDay} allShows={allShowsFlat} allSessions={allSessionsFlat} prevRestDays={prevRestDaysFor(entry.date)} />
+          )}
+
           {/* Cool down section */}
           {entry.cooldown && (
             <div>
@@ -286,4 +324,147 @@ function DayCard({ entry }: { entry: DayEntry }) {
       )}
     </div>
   );
+
+
+function RestDayHistorySection({ date, restDay, allShows, allSessions, prevRestDays }: {
+  date: string;
+  restDay: RestDayData;
+  allShows: any[];
+  allSessions: SessionRecord[];
+  prevRestDays: RestDayData[];
+}) {
+  // Find last rest day before this one
+  const lastRestDay = prevRestDays.length > 0 ? prevRestDays[0] : null;
+  const cutoffDate = lastRestDay ? lastRestDay.date : "2000-01-01";
+
+  // Shows since last rest day
+  const recentShows = allShows.filter((s) => s.date > cutoffDate && s.date <= date);
+  const showCount = recentShows.length;
+  const showRatings = recentShows.flatMap((s) => Object.values(s.ratings ?? {}) as number[]);
+  const avgShowRating = showRatings.length
+    ? Math.round((showRatings.reduce((a, b) => a + b, 0) / showRatings.length) * 10) / 10
+    : null;
+
+  // Sessions since last rest day
+  const recentSessions = allSessions.filter((s) => s.date > cutoffDate && s.date <= date);
+  const stepRatings = recentSessions.flatMap((s) =>
+    s.steps.filter((st) => st.status === "rated" && st.rating).map((st) => st.rating!)
+  );
+  const avgWarmupRating = stepRatings.length
+    ? Math.round((stepRatings.reduce((a, b) => a + b, 0) / stepRatings.length) * 10) / 10
+    : null;
+
+  // Top feelings
+  const feelingMap: Record<string, number> = {};
+  recentShows.forEach((s) => {
+    const f: string[] = (s as any).feelings ?? ((s as any).feeling ? [(s as any).feeling] : []);
+    f.forEach((x) => { feelingMap[x] = (feelingMap[x] ?? 0) + 1; });
+  });
+  const topFeelings = Object.entries(feelingMap).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([f]) => f);
+
+  // Avg fatigue from previous rest days
+  const fatigues = prevRestDays.slice(0, 4).map((r) => r.vocalFatigue).filter((v): v is number => v !== null);
+  const avgFatigue = fatigues.length
+    ? Math.round((fatigues.reduce((a, b) => a + b, 0) / fatigues.length) * 10) / 10
+    : null;
+
+  // Days since last rest day
+  const daysSince = lastRestDay ? (() => {
+    const last = new Date(lastRestDay.date + "T12:00:00");
+    const cur = new Date(date + "T12:00:00");
+    return Math.floor((cur.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+  })() : null;
+
+  const fatigueVal = restDay.vocalFatigue ?? 0;
+  const fatigueColor = fatigueVal <= 3 ? "#2C5F3F" : fatigueVal <= 6 ? "#D97706" : "#DC2626";
+
+  return (
+    <div>
+      <p className="text-[11px] font-black tracking-widest uppercase text-[#5A8AAF] mb-2">Rest day</p>
+      <div className="bg-[#EEF7FF] rounded-2xl p-4 border border-[rgba(42,126,191,0.08)] space-y-4">
+
+        {/* Run header */}
+        {daysSince !== null && (
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#A0C0D8]">
+            Run summary · {daysSince} day{daysSince !== 1 ? "s" : ""} since last rest
+          </p>
+        )}
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Shows", value: showCount > 0 ? `${showCount}` : "—", sub: "performances" },
+            { label: "Avg show", value: avgShowRating ? `${avgShowRating}/5` : "—", sub: "rating" },
+            { label: "Warmups", value: recentSessions.length > 0 ? `${recentSessions.length}` : "—", sub: "sessions" },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-xl px-2 py-2 border border-[rgba(42,126,191,0.08)] text-center">
+              <p className="text-[9px] font-black tracking-widest uppercase text-[#A0C0D8]">{s.label}</p>
+              <p className="text-[16px] font-bold text-[#1A3A52]">{s.value}</p>
+              <p className="text-[9px] text-[#A0C0D8]">{s.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Vocal fatigue today */}
+        {restDay.vocalFatigue !== null && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-[11px] font-semibold text-[#5A8AAF]">Vocal fatigue today</p>
+              <span className="text-[11px] font-bold" style={{ color: fatigueColor }}>
+                {restDay.vocalFatigue}/10
+                {avgFatigue !== null && (
+                  <span className="text-[#A0C0D8] font-normal"> · avg {avgFatigue}</span>
+                )}
+              </span>
+            </div>
+            <div className="h-2 bg-white rounded-full overflow-hidden border border-[rgba(42,126,191,0.1)]">
+              <div className="h-full rounded-full" style={{ width: `${(fatigueVal / 10) * 100}%`, background: fatigueColor }} />
+            </div>
+          </div>
+        )}
+
+        {/* Recovery checklist */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+          {[
+            { label: "Steam last night", val: restDay.steamLastNight, emoji: "🌫️" },
+            { label: "Steam today", val: restDay.steamToday, emoji: "🌫️" },
+            { label: "2L water", val: restDay.water, emoji: "💧" },
+            { label: "7-8h sleep", val: restDay.sleep, emoji: "🌙" },
+            { label: "Electrolytes", val: restDay.electrolytes, emoji: "⚡" },
+            { label: "Vocal rest", val: restDay.vocalRest, emoji: "🤫" },
+          ].filter(({ val }) => val !== null).map(({ label, val, emoji }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <span className="text-xs">{emoji}</span>
+              <span className="text-[11px] text-[#5A8AAF]">{label}</span>
+              <span className={`text-[10px] font-bold ml-auto ${val ? "text-[#2A7EBF]" : "text-rose-400"}`}>{val ? "✓" : "✗"}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Top feelings */}
+        {topFeelings.length > 0 && (
+          <div>
+            <p className="text-[10px] font-black tracking-widest uppercase text-[#A0C0D8] mb-1.5">How she felt on stage</p>
+            <div className="flex flex-wrap gap-1.5">
+              {topFeelings.map((f) => (
+                <span key={f} className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-white text-[#2A7EBF] border border-[rgba(42,126,191,0.2)]">
+                  {f}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Note */}
+        {restDay.voiceDescription && (
+          <p className="text-[12px] text-[#2A5F8A] italic pt-3 border-t border-[rgba(42,126,191,0.08)]"
+            style={{ fontFamily: "'Playfair Display', serif" }}>
+            "{restDay.voiceDescription}"
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 }

@@ -111,9 +111,14 @@ export async function getRecentCoolDowns(count = 14): Promise<CoolDownRecord[]> 
 // ─── STATS ──────────────────────────────────────────────────
 
 export async function getStreak(): Promise<number> {
-  const sessions = await getRecentSessions(30);
-  if (sessions.length === 0) return 0;
-  const dates = sessions.map((s) => s.date).sort().reverse();
+  // Streak counts both warmup sessions AND rest days
+  const [sessions, restDays] = await Promise.all([getRecentSessions(30), getRecentRestDays(30)]);
+  const dateSet = new Set([
+    ...sessions.map((s) => s.date),
+    ...restDays.map((r) => r.date),
+  ]);
+  if (dateSet.size === 0) return 0;
+  const dates = Array.from(dateSet).sort().reverse();
   let streak = 0;
   let current = new Date();
   current.setHours(0, 0, 0, 0);
@@ -200,4 +205,38 @@ export async function getYesterdayMessage(): Promise<MotivationMessage | null> {
     const snap = await getDoc(ref);
     return snap.exists() ? (snap.data() as MotivationMessage) : null;
   } catch { return null; }
+}
+
+// ─── REST DAY ────────────────────────────────────────────────
+
+export type RestDayData = {
+  date: string;
+  voiceDescription: string;
+  vocalFatigue: number | null;
+  steamLastNight: boolean | null;
+  steamToday: boolean | null;
+  water: boolean | null;
+  sleep: boolean | null;
+  electrolytes: boolean | null;
+  vocalRest: boolean | null;
+  savedAt: string;
+};
+
+export async function saveRestDay(data: Omit<RestDayData, "date" | "savedAt">) {
+  const date = getAppDate();
+  const ref = doc(db, `${userBase()}/restdays`, date);
+  await setDoc(ref, clean({ ...data, date, savedAt: getLocalTimestamp() }));
+}
+
+export async function getRestDay(date: string): Promise<RestDayData | null> {
+  const ref = doc(db, `${userBase()}/restdays`, date);
+  const snap = await getDoc(ref);
+  return snap.exists() ? (snap.data() as RestDayData) : null;
+}
+
+export async function getRecentRestDays(count = 14): Promise<RestDayData[]> {
+  const ref = collection(db, `${userBase()}/restdays`);
+  const q = query(ref, orderBy("date", "desc"), limit(count));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as RestDayData);
 }

@@ -1,7 +1,7 @@
 import HeroCard from "@/components/dashboard/HeroCard";
 import TodayShowsCard from "@/components/dashboard/TodayShowsCard";
 import CoolDownCard from "@/components/dashboard/CoolDownCard";
-import InsightsCard from "@/components/dashboard/InsightsCard";
+import RestDayCard from "@/components/dashboard/RestDayCard";
 
 export default function HomePage() {
   return (
@@ -9,7 +9,7 @@ export default function HomePage() {
       <HeroCard />
       <TodayShowsCard />
       <CoolDownCard />
-      <InsightsCard />
+      <RestDayCard />
     </main>
   );
 }
