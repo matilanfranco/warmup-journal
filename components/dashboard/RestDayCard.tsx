@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { saveRestDay, getRestDay, getRecentShows, getRecentRestDays, getRecentSessions } from "@/lib/firebaseService";
+import { saveRestDay, getRestDay, getRecentShows, getRecentRestDays, getRecentSessions, saveAiAnalysis } from "@/lib/firebaseService";
+import { useAuth } from "@/lib/AuthContext";
 import { getAppDate } from "@/lib/dateUtils";
 
 type RestDayData = {
@@ -118,6 +119,8 @@ async function loadRunSummary(): Promise<RunSummary> {
 }
 
 export default function RestDayCard() {
+  const { profile } = useAuth();
+  const firstName = profile?.firstName ?? "there";
   const [data, setData] = useState<RestDayData>(empty());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -134,6 +137,11 @@ export default function RestDayCard() {
           setData(existing);
           setSaved(true);
           fetchSummary();
+          // Restore saved AI analysis
+          if (existing.aiAnalysis) {
+            setAiAnalysis(existing.aiAnalysis);
+            setAiUsed(true);
+          }
         }
       } catch {}
       finally { setLoaded(true); }
@@ -165,6 +173,82 @@ export default function RestDayCard() {
   const fatigue = data.vocalFatigue ?? 5;
   const fatigueColor = fatigue <= 3 ? "#2C5F3F" : fatigue <= 6 ? "#D97706" : "#DC2626";
   const fatigueLabel = fatigue <= 3 ? "Low 🌿" : fatigue <= 6 ? "Moderate ⚠️" : "High 🔴";
+
+  // ── AI Analysis ───────────────────────────────────────────
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiUsed, setAiUsed] = useState(false);
+
+  const AI_KEY = "restDayAiUsed";
+
+  // Check if AI was already used today or if 3-day cooldown is active
+  const canUseAi = (() => {
+    if (typeof window === "undefined") return false;
+    const raw = localStorage.getItem(AI_KEY);
+    if (!raw) return true;
+    try {
+      const { date: lastDate } = JSON.parse(raw);
+      const last = new Date(lastDate + "T12:00:00");
+      const now = new Date();
+      const daysDiff = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
+      return daysDiff >= 3;
+    } catch { return true; }
+  })();
+
+  const alreadyUsedToday = (() => {
+    if (typeof window === "undefined") return false;
+    const raw = localStorage.getItem(AI_KEY);
+    if (!raw) return false;
+    try {
+      const { date: lastDate } = JSON.parse(raw);
+      return lastDate === getAppDate();
+    } catch { return false; }
+  })();
+
+  const handleAiAnalysis = async () => {
+    if (!summary || aiLoading) return;
+    setAiLoading(true);
+    setAiAnalysis(null);
+
+    try {
+      const prompt = `You are a vocal performance coach and sports psychologist writing a rest day debrief for ${firstName}, a professional singer. Be direct, honest, and useful — not a cheerleader. Your job is to help ${firstName} understand what the data actually says and give concrete tools to improve.
+
+Performance data from this run:
+- Days since last rest day: ${summary.daysSinceLastRestDay}
+- Shows performed: ${summary.showCount}
+- Average show rating: ${summary.avgShowRating !== null ? `${summary.avgShowRating}/5` : "not recorded"}
+- Warmup sessions completed: ${summary.sessionCount}
+- Average warmup rating: ${summary.avgWarmupRating !== null ? `${summary.avgWarmupRating}/5` : "not recorded"}
+- Vocal fatigue today: ${data.vocalFatigue !== null ? `${data.vocalFatigue}/10` : "not recorded"}
+- Average vocal fatigue trend: ${summary.avgVocalFatigue !== null ? `${summary.avgVocalFatigue}/10` : "not enough data yet"}
+- Dominant stage feelings: ${summary.topFeelings.length > 0 ? summary.topFeelings.join(", ") : "not recorded"}
+- Recovery today — water: ${data.water ? "yes" : "no"}, sleep: ${data.sleep ? "yes" : "no"}, steam: ${data.steamToday ? "yes" : "no"}, electrolytes: ${data.electrolytes ? "yes" : "no"}, vocal rest: ${data.vocalRest ? "yes" : "no"}
+- Personal note: "${data.voiceDescription || "nothing written"}"
+
+Write 3 paragraphs. First: what the data actually shows — be specific and honest. If numbers are strong, acknowledge it plainly. If something is low or concerning, name it clearly without softening it into meaninglessness. Second: identify 1-2 concrete patterns or risks visible in the data. Give one specific, actionable habit or technique to address the most important one. Third: a grounded, realistic closing — what to watch for in the next run, based on what you see here.
+
+Address ${firstName} by name at least once. No bullet points. No generic encouragement. Earn any positive statement with data. Keep it under 250 words.`;
+
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const result = await response.json();
+      const text = result.text ?? "Could not generate analysis.";
+      setAiAnalysis(text);
+      setAiUsed(true);
+      localStorage.setItem(AI_KEY, JSON.stringify({ date: getAppDate() }));
+      // Persist to Firebase
+      await saveAiAnalysis(getAppDate(), text);
+    } catch (e) {
+      console.error(e);
+      setAiAnalysis("Something went wrong. Try again later.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   return (
     <div className="mx-4 rounded-3xl overflow-hidden shadow-sm border border-white/40">
@@ -269,6 +353,17 @@ export default function RestDayCard() {
                   </p>
                 </div>
               )}
+
+              {/* AI Analysis */}
+              <div className="pt-3 border-t border-[rgba(42,126,191,0.1)]">
+                <AiAnalysisBlock
+                  analysis={aiAnalysis}
+                  loading={aiLoading}
+                  canUse={canUseAi}
+                  alreadyUsedToday={alreadyUsedToday}
+                  onGenerate={handleAiAnalysis}
+                />
+              </div>
             </div>
           ) : null}
         </div>
@@ -324,5 +419,78 @@ export default function RestDayCard() {
         </div>
       )}
     </div>
+  );
+}
+
+function AiAnalysisBlock({ analysis, loading, canUse, alreadyUsedToday, onGenerate }: {
+  analysis: string | null;
+  loading: boolean;
+  canUse: boolean;
+  alreadyUsedToday: boolean;
+  onGenerate: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (analysis) {
+    return (
+      <div>
+        <button onClick={() => setOpen((v) => !v)}
+          className="w-full flex items-center justify-between h-10 px-1">
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#5A8AAF]">
+            ✨ AI run analysis
+          </p>
+          <div className="flex items-center gap-2">
+            {canUse && !alreadyUsedToday && (
+              <button onClick={(e) => { e.stopPropagation(); onGenerate(); }}
+                className="text-[10px] font-semibold text-[#2A7EBF] hover:underline">
+                Regenerate
+              </button>
+            )}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+              className={`text-[#A0C0D8] transition-transform ${open ? "rotate-180" : ""}`}>
+              <path d="M3 5L7 9L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </button>
+        {open && (
+          <div className="bg-white rounded-2xl p-4 border border-[rgba(42,126,191,0.1)] mt-2">
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full border-2 border-[#2A7EBF] border-t-transparent animate-spin shrink-0" />
+                <span className="text-[12px] text-[#5A8AAF]">Regenerating analysis...</span>
+              </div>
+            ) : (
+              <p className="text-[13px] text-[#1A3A52] leading-relaxed whitespace-pre-line"
+                style={{ fontFamily: "'Playfair Display', serif" }}>
+                {analysis}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (!canUse) {
+    return (
+      <p className="text-[11px] text-[#A0C0D8] text-center py-1">
+        AI analysis available every 3 rest days 🌊
+      </p>
+    );
+  }
+
+  return (
+    <button onClick={onGenerate} disabled={loading}
+      className="w-full h-11 rounded-full text-[13px] font-semibold transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
+      style={{ background: "rgba(42,126,191,0.12)", color: "#1A3A52", border: "1px solid rgba(42,126,191,0.25)" }}>
+      {loading ? (
+        <>
+          <div className="w-4 h-4 rounded-full border-2 border-[#2A7EBF] border-t-transparent animate-spin" />
+          Analyzing your run...
+        </>
+      ) : (
+        <>✨ Get AI run analysis</>
+      )}
+    </button>
   );
 }

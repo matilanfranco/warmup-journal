@@ -219,6 +219,8 @@ export type RestDayData = {
   sleep: boolean | null;
   electrolytes: boolean | null;
   vocalRest: boolean | null;
+  aiAnalysis?: string | null;
+  aiAnalysisDate?: string | null;
   savedAt: string;
 };
 
@@ -234,9 +236,34 @@ export async function getRestDay(date: string): Promise<RestDayData | null> {
   return snap.exists() ? (snap.data() as RestDayData) : null;
 }
 
+export async function saveAiAnalysis(date: string, analysis: string) {
+  const ref = doc(db, `${userBase()}/restdays`, date);
+  await setDoc(ref, clean({ aiAnalysis: analysis, aiAnalysisDate: getLocalTimestamp() }), { merge: true });
+}
+
 export async function getRecentRestDays(count = 14): Promise<RestDayData[]> {
   const ref = collection(db, `${userBase()}/restdays`);
   const q = query(ref, orderBy("date", "desc"), limit(count));
   const snap = await getDocs(q);
   return snap.docs.map((d) => d.data() as RestDayData);
+}
+
+// ─── AI ANALYSIS ─────────────────────────────────────────────
+
+export type AiAnalysis = {
+  date: string;
+  text: string;
+  savedAt: string;
+};
+
+
+
+export async function getLatestAiAnalysis(): Promise<AiAnalysis | null> {
+  try {
+    const ref = collection(db, `${userBase()}/aianalysis`);
+    const q = query(ref, orderBy("date", "desc"), limit(1));
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+    return snap.docs[0].data() as AiAnalysis;
+  } catch { return null; }
 }

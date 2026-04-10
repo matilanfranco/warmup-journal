@@ -462,6 +462,17 @@ function RestDayHistorySection({ date, restDay, allShows, allSessions, prevRestD
             "{restDay.voiceDescription}"
           </p>
         )}
+
+        {/* AI Analysis */}
+        {restDay.aiAnalysis && (
+          <div className="pt-3 border-t border-[rgba(42,126,191,0.08)]">
+            <p className="text-[10px] font-black tracking-widest uppercase text-[#A0C0D8] mb-2">✨ AI run analysis</p>
+            <p className="text-[12px] text-[#1A3A52] leading-relaxed whitespace-pre-line"
+              style={{ fontFamily: "'Playfair Display', serif" }}>
+              {restDay.aiAnalysis}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
