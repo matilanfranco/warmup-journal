@@ -58,7 +58,7 @@ export default function PreWarmupCheck({ onStart, onLater }: Props) {
 
         {/* Water */}
         <CheckRow
-          label="64 oz / 2L of water today?"
+          label="80–100 oz / 2.5–3L of water today?"
           emoji="💧"
           value={water}
           onChange={setWater}

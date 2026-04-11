@@ -160,7 +160,6 @@ function ShowForm({ index, initial, onSave, onCancel }: {
   const [show, setShow] = useState<ShowEntry>({ ...initial, feelings: initial.feelings ?? [] });
   const [showValidation, setShowValidation] = useState(false);
 
-
   const allRated = show.ratings.voice > 0 && show.ratings.energy > 0 &&
     show.ratings.confidence > 0 && show.ratings.range > 0;
 
@@ -296,43 +295,16 @@ function ShowForm({ index, initial, onSave, onCancel }: {
 }
 
 export default function TodayShowsCard() {
-  const [shows, setShows] = useState<(ShowEntry | null)[]>([null, null, null]);
+  const [shows, setShows] = useState<(ShowEntry | null)[]>([null]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!loaded) return; // 👈 ESTA LINEA
-
-    const today = new Date().toISOString().split("T")[0];
-    localStorage.setItem("shows", JSON.stringify(shows));
-    localStorage.setItem("shows_date", today);
-  }, [shows, loaded]);
-
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const savedDate = localStorage.getItem("shows_date");
-
-    if (savedDate && savedDate !== today) {
-      localStorage.removeItem("shows");
-      localStorage.setItem("shows_date", today);
-      setShows([null, null, null]);
-    }
-  }, []);
-
-  useEffect(() => {
     async function load() {
       try {
         const today = new Date().toISOString().split("T")[0];
-        const local = localStorage.getItem("shows");
-        const localDate = localStorage.getItem("shows_date");
-
-        if (local && localDate === today) {
-          setShows(JSON.parse(local));
-          setLoaded(true);
-          return;
-        }
         const data = await getShows(today);
         if (data && data.shows.length > 0) {
           const loaded = data.shows.map((s) => ({
@@ -340,8 +312,7 @@ export default function TodayShowsCard() {
             feelings: (s as any).feelings ?? ((s as any).feeling ? [(s as any).feeling] : []),
             done: true,
           } as ShowEntry));
-          const padded: (ShowEntry | null)[] = [null, null, null];
-          loaded.forEach((s, i) => { if (i < 3) padded[i] = s; });
+          const padded: (ShowEntry | null)[] = loaded.length > 0 ? loaded : [null];
           setShows(padded);
           setSavedAt(data.savedAt);
         }
@@ -391,7 +362,7 @@ export default function TodayShowsCard() {
             style={{ fontFamily: "'Playfair Display', serif" }}>
             Tonight's performances
           </h2>
-          <p className="text-[12px] text-[#8FA896] mt-0.5">Log up to 3 shows · tap ✏️ to edit</p>
+          <p className="text-[12px] text-[#8FA896] mt-0.5">Log your shows · tap ✏️ to edit</p>
         </div>
         {saving && <span className="text-[11px] text-[#8FA896] animate-pulse">Saving...</span>}
       </div>
@@ -413,10 +384,25 @@ export default function TodayShowsCard() {
             return (
               <button key={i} type="button" onClick={() => setEditingIdx(i)}
                 className="w-full h-11 rounded-2xl border border-dashed border-[rgba(44,95,63,0.25)] bg-transparent flex items-center justify-center gap-2 text-[13px] text-[#8FA896] font-medium active:scale-[0.98] transition-transform hover:bg-[#F5F2EC]">
-                <span className="text-base leading-none">+</span> Add show {i + 1}
+                <span className="text-base leading-none">+</span>
+                {i === 0 ? "Add show" : `Add show ${i + 1}`}
               </button>
             );
           })}
+
+          {/* Add another show button — only show when last slot is filled */}
+          {shows[shows.length - 1]?.done && editingIdx === null && (
+            <button
+              type="button"
+              onClick={() => {
+                setShows((prev) => [...prev, null]);
+                setEditingIdx(shows.length);
+              }}
+              className="w-full h-11 rounded-2xl border border-dashed border-[rgba(44,95,63,0.15)] bg-transparent flex items-center justify-center gap-2 text-[12px] text-[#B5C4B9] font-medium active:scale-[0.98] transition-transform hover:bg-[#F5F2EC]"
+            >
+              <span className="text-base leading-none">+</span> Add another show
+            </button>
+          )}
         </div>
       )}
 

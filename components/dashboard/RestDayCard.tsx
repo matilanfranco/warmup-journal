@@ -404,7 +404,7 @@ Address ${firstName} by name at least once. No bullet points. No generic encoura
             <div className="space-y-3">
               <CheckRow emoji="🌫️" label="Steam last night?" value={data.steamLastNight} onChange={(v) => set("steamLastNight", v)} />
               <CheckRow emoji="🌫️" label="Steam today?" value={data.steamToday} onChange={(v) => set("steamToday", v)} />
-              <CheckRow emoji="💧" label="64 oz / 2L of water?" value={data.water} onChange={(v) => set("water", v)} />
+              <CheckRow emoji="💧" label="80–100 oz / 2.5–3L of water?" value={data.water} onChange={(v) => set("water", v)} />
               <CheckRow emoji="🌙" label="7–8 hrs of sleep?" value={data.sleep} onChange={(v) => set("sleep", v)} />
               <CheckRow emoji="⚡" label="Electrolytes?" value={data.electrolytes} onChange={(v) => set("electrolytes", v)} />
               <CheckRow emoji="🤫" label="Vocal rest today?" value={data.vocalRest} onChange={(v) => set("vocalRest", v)} />

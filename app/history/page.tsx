@@ -428,7 +428,7 @@ function RestDayHistorySection({ date, restDay, allShows, allSessions, prevRestD
           {[
             { label: "Steam last night", val: restDay.steamLastNight, emoji: "🌫️" },
             { label: "Steam today", val: restDay.steamToday, emoji: "🌫️" },
-            { label: "2L water", val: restDay.water, emoji: "💧" },
+            { label: "2.5–3L water", val: restDay.water, emoji: "💧" },
             { label: "7-8h sleep", val: restDay.sleep, emoji: "🌙" },
             { label: "Electrolytes", val: restDay.electrolytes, emoji: "⚡" },
             { label: "Vocal rest", val: restDay.vocalRest, emoji: "🤫" },
