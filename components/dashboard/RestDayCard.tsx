@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { saveRestDay, getRestDay, getRecentShows, getRecentRestDays, getRecentSessions, saveAiAnalysis } from "@/lib/firebaseService";
+import { saveRestDay, getRestDay, getRecentShows, getRecentRestDays, getRecentSessions, saveAiAnalysis, getRecentCheckIns } from "@/lib/firebaseService";
 import { useAuth } from "@/lib/AuthContext";
 import { getAppDate } from "@/lib/dateUtils";
 
@@ -24,6 +24,8 @@ type RunSummary = {
   sessionCount: number;
   avgWarmupRating: number | null;
   daysSinceLastRestDay: number;
+  checkinHistory: any[];
+  showHistory: any[];
 };
 
 const empty = (): RestDayData => ({
@@ -63,15 +65,14 @@ function CheckRow({ emoji, label, value, onChange }: { emoji: string; label: str
 }
 
 async function loadRunSummary(): Promise<RunSummary> {
-  const [shows, restDays, sessions] = await Promise.all([
+  const [shows, restDays, sessions, checkins] = await Promise.all([
     getRecentShows(30),
     getRecentRestDays(10),
     getRecentSessions(30),
+    getRecentCheckIns(20),
   ]);
 
   const today = getAppDate();
-
-  // Days since last rest day (excluding today)
   const prevRestDays = restDays.filter((r) => r.date !== today);
   const daysSinceLastRestDay = prevRestDays.length > 0 ? (() => {
     const last = new Date(prevRestDays[0].date + "T12:00:00");
@@ -79,34 +80,28 @@ async function loadRunSummary(): Promise<RunSummary> {
     return Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
   })() : 0;
 
-  // Get shows since last rest day
   const cutoffDate = prevRestDays.length > 0 ? prevRestDays[0].date : "2000-01-01";
   const recentShows = shows.filter((d) => d.date > cutoffDate);
   const allShows = recentShows.flatMap((d) => d.shows);
   const showCount = allShows.length;
 
-  // Avg show rating
   const showRatings = allShows.flatMap((s) => Object.values(s.ratings ?? {}) as number[]);
   const avgShowRating = showRatings.length
     ? Math.round((showRatings.reduce((a, b) => a + b, 0) / showRatings.length) * 10) / 10
     : null;
 
-  // Top feelings from shows
   const feelingMap: Record<string, number> = {};
   allShows.forEach((s) => {
     const f: string[] = (s as any).feelings ?? ((s as any).feeling ? [(s as any).feeling] : []);
     f.forEach((x) => { feelingMap[x] = (feelingMap[x] ?? 0) + 1; });
   });
-  const topFeelings = Object.entries(feelingMap)
-    .sort((a, b) => b[1] - a[1]).slice(0, 4).map(([f]) => f);
+  const topFeelings = Object.entries(feelingMap).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([f]) => f);
 
-  // Avg vocal fatigue from previous rest days
   const fatigues = prevRestDays.slice(0, 5).map((r) => r.vocalFatigue).filter((v): v is number => v !== null);
   const avgVocalFatigue = fatigues.length
     ? Math.round((fatigues.reduce((a, b) => a + b, 0) / fatigues.length) * 10) / 10
     : null;
 
-  // Sessions since last rest day
   const recentSessions = sessions.filter((s) => s.date > cutoffDate);
   const allStepRatings = recentSessions.flatMap((s) =>
     s.steps.filter((st) => st.status === "rated" && st.rating).map((st) => st.rating!)
@@ -115,12 +110,73 @@ async function loadRunSummary(): Promise<RunSummary> {
     ? Math.round((allStepRatings.reduce((a, b) => a + b, 0) / allStepRatings.length) * 10) / 10
     : null;
 
-  return { showCount, avgShowRating, avgVocalFatigue, topFeelings, sessionCount: recentSessions.length, avgWarmupRating, daysSinceLastRestDay };
+  return {
+    showCount, avgShowRating, avgVocalFatigue, topFeelings,
+    sessionCount: recentSessions.length, avgWarmupRating, daysSinceLastRestDay,
+    checkinHistory: checkins.slice(0, 14).map((c) => ({
+      date: c.date,
+      water: c.water,
+      sleepHours: (c as any).sleepHours ?? (c.sleep ? 8 : 6),
+      alcohol: c.alcohol,
+      gym: c.gym,
+      feeling: c.feeling,
+    })),
+    showHistory: shows.filter((d) => d.date > cutoffDate).slice(0, 14),
+  };
+}
+
+function buildPrompt(firstName: string, summary: RunSummary, data: RestDayData): string {
+  const checkinLines = summary.checkinHistory.length > 0
+    ? summary.checkinHistory.map((c: any) =>
+        `  ${c.date}: water=${c.water ? "yes" : "no"}, sleep=${c.sleepHours}h, alcohol=${c.alcohol ? "yes" : "no"}, gym=${c.gym ?? "none"}, feeling=${c.feeling ?? "unknown"}`
+      ).join("\n")
+    : "  Not enough checkin data yet";
+
+  const showLines = summary.showHistory.length > 0
+    ? summary.showHistory.map((s: any) => {
+        const showSummaries = s.shows.map((sh: any) => {
+          const vals = Object.values(sh.ratings ?? {}) as number[];
+          const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : "?";
+          return (sh.name ?? "show") + " " + avg + "/5";
+        }).join(", ");
+        return "  " + s.date + ": " + showSummaries;
+      }).join("\n")
+    : "  Not enough show data yet";
+
+  return `You are a vocal performance coach and sports psychologist writing a rest day debrief for ${firstName}, a professional singer. Be direct, honest, and useful — not a cheerleader.
+
+PERFORMANCE DATA FROM THIS RUN:
+- Days since last rest day: ${summary.daysSinceLastRestDay}
+- Shows performed: ${summary.showCount}
+- Average show rating: ${summary.avgShowRating !== null ? summary.avgShowRating + "/5" : "not recorded"}
+- Warmup sessions: ${summary.sessionCount}, avg rating: ${summary.avgWarmupRating !== null ? summary.avgWarmupRating + "/5" : "not recorded"}
+- Vocal fatigue today: ${data.vocalFatigue !== null ? data.vocalFatigue + "/10" : "not recorded"}
+- Avg fatigue trend: ${summary.avgVocalFatigue !== null ? summary.avgVocalFatigue + "/10" : "not enough data"}
+- Dominant stage feelings: ${summary.topFeelings.length > 0 ? summary.topFeelings.join(", ") : "not recorded"}
+- Recovery today: water=${data.water ? "yes" : "no"}, sleep=${data.sleep ? "yes" : "no"}, steam=${data.steamToday ? "yes" : "no"}, electrolytes=${data.electrolytes ? "yes" : "no"}, vocal rest=${data.vocalRest ? "yes" : "no"}
+- Personal note: "${data.voiceDescription || "nothing written"}"
+
+PRE-WARMUP CHECKIN HISTORY (most recent first):
+${checkinLines}
+
+SHOW RATINGS BY DAY:
+${showLines}
+
+Write exactly 3 paragraphs:
+
+PARAGRAPH 1 - Run overview: what the numbers actually show. Be specific and honest. Earn any positive statement with data.
+
+PARAGRAPH 2 - Pattern analysis: cross-reference the checkin history with show ratings. Name real correlations you spot (better shows after more sleep, lower ratings after alcohol or heavy gym, hydration tied to energy, etc). If data is insufficient for a real correlation, say so plainly and note what to watch for. Be a scientist, not a fortune teller.
+
+PARAGRAPH 3 - Next run focus: one or two concrete, specific things to track or change. Grounded, realistic, actionable.
+
+Address ${firstName} by name at least once. No bullet points inside paragraphs. No generic encouragement. Keep it under 300 words.`;
 }
 
 export default function RestDayCard() {
   const { profile } = useAuth();
   const firstName = profile?.firstName ?? "there";
+
   const [data, setData] = useState<RestDayData>(empty());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -128,19 +184,40 @@ export default function RestDayCard() {
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const AI_KEY = "restDayAiUsed";
+
+  const canUseAi = (() => {
+    if (typeof window === "undefined") return false;
+    const raw = localStorage.getItem(AI_KEY);
+    if (!raw) return true;
+    try {
+      const { date: lastDate } = JSON.parse(raw);
+      const diff = Math.floor((Date.now() - new Date(lastDate + "T12:00:00").getTime()) / (1000 * 60 * 60 * 24));
+      return diff >= 3;
+    } catch { return true; }
+  })();
+
+  const alreadyUsedToday = (() => {
+    if (typeof window === "undefined") return false;
+    const raw = localStorage.getItem(AI_KEY);
+    if (!raw) return false;
+    try { return JSON.parse(raw).date === getAppDate(); }
+    catch { return false; }
+  })();
 
   useEffect(() => {
     async function load() {
       try {
         const existing = await getRestDay(getAppDate());
         if (existing) {
-          setData(existing);
+          setData(existing as any);
           setSaved(true);
           fetchSummary();
-          // Restore saved AI analysis
-          if (existing.aiAnalysis) {
-            setAiAnalysis(existing.aiAnalysis);
-            setAiUsed(true);
+          if ((existing as any).aiAnalysis) {
+            setAiAnalysis((existing as any).aiAnalysis);
           }
         }
       } catch {}
@@ -151,10 +228,8 @@ export default function RestDayCard() {
 
   const fetchSummary = async () => {
     setSummaryLoading(true);
-    try {
-      const s = await loadRunSummary();
-      setSummary(s);
-    } catch {} finally { setSummaryLoading(false); }
+    try { setSummary(await loadRunSummary()); }
+    catch {} finally { setSummaryLoading(false); }
   };
 
   const set = <K extends keyof RestDayData>(key: K, val: RestDayData[K]) =>
@@ -170,85 +245,31 @@ export default function RestDayCard() {
     finally { setSaving(false); setOpen(false); }
   };
 
-  const fatigue = data.vocalFatigue ?? 5;
-  const fatigueColor = fatigue <= 3 ? "#2C5F3F" : fatigue <= 6 ? "#D97706" : "#DC2626";
-  const fatigueLabel = fatigue <= 3 ? "Low 🌿" : fatigue <= 6 ? "Moderate ⚠️" : "High 🔴";
-
-  // ── AI Analysis ───────────────────────────────────────────
-  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiUsed, setAiUsed] = useState(false);
-
-  const AI_KEY = "restDayAiUsed";
-
-  // Check if AI was already used today or if 3-day cooldown is active
-  const canUseAi = (() => {
-    if (typeof window === "undefined") return false;
-    const raw = localStorage.getItem(AI_KEY);
-    if (!raw) return true;
-    try {
-      const { date: lastDate } = JSON.parse(raw);
-      const last = new Date(lastDate + "T12:00:00");
-      const now = new Date();
-      const daysDiff = Math.floor((now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24));
-      return daysDiff >= 3;
-    } catch { return true; }
-  })();
-
-  const alreadyUsedToday = (() => {
-    if (typeof window === "undefined") return false;
-    const raw = localStorage.getItem(AI_KEY);
-    if (!raw) return false;
-    try {
-      const { date: lastDate } = JSON.parse(raw);
-      return lastDate === getAppDate();
-    } catch { return false; }
-  })();
-
   const handleAiAnalysis = async () => {
     if (!summary || aiLoading) return;
     setAiLoading(true);
     setAiAnalysis(null);
-
     try {
-      const prompt = `You are a vocal performance coach and sports psychologist writing a rest day debrief for ${firstName}, a professional singer. Be direct, honest, and useful — not a cheerleader. Your job is to help ${firstName} understand what the data actually says and give concrete tools to improve.
-
-Performance data from this run:
-- Days since last rest day: ${summary.daysSinceLastRestDay}
-- Shows performed: ${summary.showCount}
-- Average show rating: ${summary.avgShowRating !== null ? `${summary.avgShowRating}/5` : "not recorded"}
-- Warmup sessions completed: ${summary.sessionCount}
-- Average warmup rating: ${summary.avgWarmupRating !== null ? `${summary.avgWarmupRating}/5` : "not recorded"}
-- Vocal fatigue today: ${data.vocalFatigue !== null ? `${data.vocalFatigue}/10` : "not recorded"}
-- Average vocal fatigue trend: ${summary.avgVocalFatigue !== null ? `${summary.avgVocalFatigue}/10` : "not enough data yet"}
-- Dominant stage feelings: ${summary.topFeelings.length > 0 ? summary.topFeelings.join(", ") : "not recorded"}
-- Recovery today — water: ${data.water ? "yes" : "no"}, sleep: ${data.sleep ? "yes" : "no"}, steam: ${data.steamToday ? "yes" : "no"}, electrolytes: ${data.electrolytes ? "yes" : "no"}, vocal rest: ${data.vocalRest ? "yes" : "no"}
-- Personal note: "${data.voiceDescription || "nothing written"}"
-
-Write 3 paragraphs. First: what the data actually shows — be specific and honest. If numbers are strong, acknowledge it plainly. If something is low or concerning, name it clearly without softening it into meaninglessness. Second: identify 1-2 concrete patterns or risks visible in the data. Give one specific, actionable habit or technique to address the most important one. Third: a grounded, realistic closing — what to watch for in the next run, based on what you see here.
-
-Address ${firstName} by name at least once. No bullet points. No generic encouragement. Earn any positive statement with data. Keep it under 250 words.`;
-
+      const prompt = buildPrompt(firstName, summary, data);
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
-
       const result = await response.json();
       const text = result.text ?? "Could not generate analysis.";
       setAiAnalysis(text);
-      setAiUsed(true);
       localStorage.setItem(AI_KEY, JSON.stringify({ date: getAppDate() }));
-      // Persist to Firebase
       await saveAiAnalysis(getAppDate(), text);
     } catch (e) {
       console.error(e);
       setAiAnalysis("Something went wrong. Try again later.");
-    } finally {
-      setAiLoading(false);
-    }
+    } finally { setAiLoading(false); }
   };
+
+  const fatigue = data.vocalFatigue ?? 5;
+  const fatigueColor = fatigue <= 3 ? "#2C5F3F" : fatigue <= 6 ? "#D97706" : "#DC2626";
+  const fatigueLabel = fatigue <= 3 ? "Low 🌿" : fatigue <= 6 ? "Moderate ⚠️" : "High 🔴";
 
   return (
     <div className="mx-4 rounded-3xl overflow-hidden shadow-sm border border-white/40">
@@ -280,7 +301,7 @@ Address ${firstName} by name at least once. No bullet points. No generic encoura
         </div>
       </div>
 
-      {/* Run summary — loaded from Firebase */}
+      {/* Summary */}
       {saved && (
         <div className="bg-[#EEF7FF] px-5 py-4 border-t border-[rgba(42,126,191,0.1)]">
           {summaryLoading ? (
@@ -294,7 +315,6 @@ Address ${firstName} by name at least once. No bullet points. No generic encoura
                 Since your last rest day · {summary.daysSinceLastRestDay > 0 ? `${summary.daysSinceLastRestDay} days ago` : "first one!"}
               </p>
 
-              {/* Stats grid */}
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: "Shows", value: summary.showCount > 0 ? `${summary.showCount}` : "—", sub: "performances" },
@@ -309,16 +329,13 @@ Address ${firstName} by name at least once. No bullet points. No generic encoura
                 ))}
               </div>
 
-              {/* Vocal fatigue trend */}
               {summary.avgVocalFatigue !== null && (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-[11px] font-semibold text-[#5A8AAF]">Avg vocal fatigue (last rest days)</p>
                     <span className="text-[11px] font-bold" style={{
                       color: summary.avgVocalFatigue <= 3 ? "#2C5F3F" : summary.avgVocalFatigue <= 6 ? "#D97706" : "#DC2626"
-                    }}>
-                      {summary.avgVocalFatigue}/10
-                    </span>
+                    }}>{summary.avgVocalFatigue}/10</span>
                   </div>
                   <div className="h-2 bg-white rounded-full overflow-hidden border border-[rgba(42,126,191,0.1)]">
                     <div className="h-full rounded-full" style={{
@@ -329,32 +346,26 @@ Address ${firstName} by name at least once. No bullet points. No generic encoura
                 </div>
               )}
 
-              {/* Top feelings */}
               {summary.topFeelings.length > 0 && (
                 <div>
                   <p className="text-[10px] font-black tracking-widest uppercase text-[#5A8AAF] mb-2">How you felt on stage</p>
                   <div className="flex flex-wrap gap-1.5">
                     {summary.topFeelings.map((f) => (
-                      <span key={f} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-[#2A7EBF] border border-[rgba(42,126,191,0.2)]">
-                        {f}
-                      </span>
+                      <span key={f} className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white text-[#2A7EBF] border border-[rgba(42,126,191,0.2)]">{f}</span>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Today's note */}
               {data.voiceDescription && (
                 <div className="pt-3 border-t border-[rgba(42,126,191,0.1)]">
                   <p className="text-[10px] font-black tracking-widest uppercase text-[#5A8AAF] mb-1">Your note</p>
-                  <p className="text-[13px] text-[#1A3A52] italic"
-                    style={{ fontFamily: "'Playfair Display', serif" }}>
+                  <p className="text-[13px] text-[#1A3A52] italic" style={{ fontFamily: "'Playfair Display', serif" }}>
                     "{data.voiceDescription}"
                   </p>
                 </div>
               )}
 
-              {/* AI Analysis */}
               <div className="pt-3 border-t border-[rgba(42,126,191,0.1)]">
                 <AiAnalysisBlock
                   analysis={aiAnalysis}
@@ -436,9 +447,7 @@ function AiAnalysisBlock({ analysis, loading, canUse, alreadyUsedToday, onGenera
       <div>
         <button onClick={() => setOpen((v) => !v)}
           className="w-full flex items-center justify-between h-10 px-1">
-          <p className="text-[10px] font-black tracking-widest uppercase text-[#5A8AAF]">
-            ✨ AI run analysis
-          </p>
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#5A8AAF]">✨ AI run analysis</p>
           <div className="flex items-center gap-2">
             {canUse && !alreadyUsedToday && (
               <button onClick={(e) => { e.stopPropagation(); onGenerate(); }}

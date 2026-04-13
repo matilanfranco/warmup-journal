@@ -19,6 +19,7 @@ const FEELINGS: { value: Feeling; label: string; emoji: string }[] = [
 
 export default function PreWarmupCheck({ onStart, onLater }: Props) {
   const [water, setWater] = useState<boolean | null>(null);
+  const [sleepHours, setSleepHours] = useState<number>(7);
   const [steam, setSteam] = useState<boolean | null>(null);
   const [sleep, setSleep] = useState<boolean | null>(null);
   const [caffeine, setCaffeine] = useState<boolean | null>(null);
@@ -30,7 +31,8 @@ export default function PreWarmupCheck({ onStart, onLater }: Props) {
   const handleStart = async () => {
     setSaving(true);
     try {
-      await saveCheckIn({ water, steam, sleep, caffeine, gym, alcohol, feeling });
+      const sleepOk = sleepHours >= 7;
+      await saveCheckIn({ water, steam, sleep: sleepOk, sleepHours, caffeine, gym, alcohol, feeling });
     } catch (e) {
       console.error(e);
     } finally {
@@ -58,7 +60,7 @@ export default function PreWarmupCheck({ onStart, onLater }: Props) {
 
         {/* Water */}
         <CheckRow
-          label="80–100 oz / 2.5–3L of water today?"
+          label="100–130 oz / 3–4L of water today?"
           emoji="💧"
           value={water}
           onChange={setWater}
@@ -74,14 +76,32 @@ export default function PreWarmupCheck({ onStart, onLater }: Props) {
           options={[{ label: "Yes", value: true }, { label: "No", value: false }]}
         />
 
-        {/* Sleep */}
-        <CheckRow
-          label="7–8+ hours of sleep?"
-          emoji="🌙"
-          value={sleep}
-          onChange={setSleep}
-          options={[{ label: "Yes", value: true }, { label: "No", value: false }]}
-        />
+        {/* Sleep hours */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base leading-none">🌙</span>
+              <p className="text-[12px] font-semibold text-[#1C2B22]">Hours of sleep</p>
+            </div>
+            <span className={`text-[13px] font-bold ${sleepHours >= 7 ? "text-[#2C5F3F]" : sleepHours >= 6 ? "text-amber-600" : "text-rose-500"}`}>
+              {sleepHours}h {sleepHours >= 7 ? "✓" : sleepHours >= 6 ? "~" : "↓"}
+            </span>
+          </div>
+          <input
+            type="range" min={3} max={12} step={0.5}
+            value={sleepHours}
+            onChange={(e) => setSleepHours(Number(e.target.value))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, ${sleepHours >= 7 ? "#2C5F3F" : sleepHours >= 6 ? "#D97706" : "#DC2626"} ${((sleepHours - 3) / 9) * 100}%, #EAF0EB ${((sleepHours - 3) / 9) * 100}%)`
+            }}
+          />
+          <div className="flex justify-between mt-1">
+            <span className="text-[9px] text-[#B5C4B9]">3h</span>
+            <span className="text-[9px] text-[#8FA896] font-medium">7h ideal</span>
+            <span className="text-[9px] text-[#B5C4B9]">12h</span>
+          </div>
+        </div>
 
         {/* Caffeine */}
         <CheckRow

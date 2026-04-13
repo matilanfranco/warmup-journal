@@ -159,6 +159,7 @@ export type CheckIn = {
   water: boolean | null;
   steam: boolean | null;
   sleep: boolean | null;
+  sleepHours: number | null;
   caffeine: boolean | null;
   gym: "none" | "light" | "heavy" | null;
   alcohol: boolean | null;
@@ -170,6 +171,13 @@ export async function saveCheckIn(data: Omit<CheckIn, "date" | "completedAt">) {
   const date = getAppDate();
   const ref = doc(db, `${userBase()}/checkins`, date);
   await setDoc(ref, clean({ ...data, date, completedAt: getLocalTimestamp() }));
+}
+
+export async function getRecentCheckIns(count = 20): Promise<CheckIn[]> {
+  const ref = collection(db, `${userBase()}/checkins`);
+  const q = query(ref, orderBy("date", "desc"), limit(count));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as CheckIn);
 }
 
 export async function getCheckIn(date: string): Promise<CheckIn | null> {
