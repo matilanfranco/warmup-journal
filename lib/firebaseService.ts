@@ -67,8 +67,8 @@ export type DayShows = {
   savedAt: string;
 };
 
-export async function saveShows(shows: ShowRecord[]) {
-  const date = getAppDate();
+export async function saveShows(shows: ShowRecord[], date?: string) {
+  date = date ?? getAppDate();
   const ref = doc(db, `${userBase()}/shows`, date);
   await setDoc(ref, clean({ date, shows, savedAt: getLocalTimestamp() }));
 }
