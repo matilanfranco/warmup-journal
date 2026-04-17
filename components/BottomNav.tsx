@@ -68,6 +68,7 @@ const tabs = [
 export default function BottomNav() {
   const pathname = usePathname();
   const isCooldown = pathname.startsWith("/cooldown");
+  const isBreak = pathname.startsWith("/break");
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
@@ -75,6 +76,8 @@ export default function BottomNav() {
         <div className={`border-t px-2 pb-6 pt-2 transition-colors duration-300 ${
           isCooldown
             ? "bg-[#2D2650]/95 backdrop-blur-md border-[rgba(180,160,220,0.15)]"
+            : isBreak
+            ? "bg-[#FFF8F0]/95 backdrop-blur-md border-[rgba(139,94,60,0.1)]"
             : "bg-white/95 backdrop-blur-md border-[rgba(44,95,63,0.08)]"
         }`}>
           <div className="flex items-center justify-around">

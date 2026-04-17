@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/lib/AuthContext";
+import { useAppMode } from "@/lib/AppModeContext";
 
 const PUBLIC_ROUTES = ["/login", "/register"];
 
@@ -16,6 +17,8 @@ export default function Header() {
   const { user, profile, signOut } = useAuth();
 
   const isCooldown = pathname.startsWith("/cooldown");
+  const { mode } = useAppMode();
+  const isBreak = mode === "break" || pathname.startsWith("/break");
   const isPublic = PUBLIC_ROUTES.includes(pathname);
 
   const navItems = useMemo(() => [
@@ -49,6 +52,16 @@ export default function Header() {
     router.push("/login");
   };
 
+  const bk = {
+    bg: "bg-[#FDF6EE]", border: "border-[rgba(139,94,60,0.12)]",
+    name: "text-[#3D1F0A]", sub: "text-[#8B6A50]", greeting: "text-[#8B5E3C]", date: "text-[#8B6A50]",
+    navActive: "bg-[#8B5E3C] text-white", navInactive: "text-[#8B6A50] hover:bg-[#FFF0E0]",
+    hamburger: "border-[rgba(139,94,60,0.2)] bg-[#FFF0E0]", hamburgerBar: "bg-[#8B5E3C]",
+    mobileActive: "bg-[#8B5E3C] text-white", mobileInactive: "bg-[#FFF8F0] text-[#3D1F0A]",
+    divider: "border-[rgba(139,94,60,0.1)]",
+    avatar: "bg-[#FFF0E0] text-[#8B5E3C] border-[rgba(139,94,60,0.2)]",
+  };
+
   const cd = {
     bg: "bg-[#2D2650]", border: "border-[rgba(180,160,220,0.15)]",
     name: "text-[#E8E0F8]", sub: "text-[#9B8EC4]", greeting: "text-[#9B8EC4]", date: "text-[#C4B8E8]",
@@ -69,7 +82,7 @@ export default function Header() {
     avatar: "bg-[#EAF0EB] text-[#2C5F3F] border-[rgba(44,95,63,0.2)]",
   };
 
-  const p = isCooldown ? cd : wm;
+  const p = isBreak ? bk : isCooldown ? cd : wm;
 
   // Hide header on public routes
   if (isPublic) return null;
@@ -89,7 +102,7 @@ export default function Header() {
             <div className="leading-tight">
               <div className={`text-[13px] font-bold tracking-tight ${p.name}`}>The Daily Singer</div>
               <div className={`text-[9px] font-black tracking-[2px] uppercase ${p.sub}`}>
-                {isCooldown ? "cool down" : "voice journal"}
+                {isBreak ? "break mode" : isCooldown ? "cool down" : "voice journal"}
               </div>
             </div>
           </Link>

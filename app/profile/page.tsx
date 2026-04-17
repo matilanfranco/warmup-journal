@@ -8,6 +8,8 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 
 import { db, auth } from "@/lib/firebase";
 import Image from "next/image";
 import { requestPermission, hasPermission } from "@/lib/notifications";
+import { useAppMode } from "@/lib/AppModeContext";
+import ModeToggleModal from "@/components/ModeToggleModal";
 
 const VOICE_TYPES = ["Soprano", "Mezzo-soprano", "Contralto", "Tenor", "Baritone", "Bass"];
 
@@ -30,6 +32,8 @@ export default function ProfilePage() {
   const [pwError, setPwError] = useState("");
   const [pwOk, setPwOk] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
+  const { mode } = useAppMode();
+  const [showModeModal, setShowModeModal] = useState(false);
   const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied">("unknown");
 
   useEffect(() => {
@@ -214,6 +218,29 @@ export default function ProfilePage() {
           )}
         </div>
 
+        {/* Mode toggle */}
+        <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm p-5 mb-4">
+          <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3">App mode</p>
+          <div className={`flex items-center justify-between rounded-2xl px-4 py-3 border ${
+            mode === "break"
+              ? "bg-[#FFF8F0] border-[rgba(139,94,60,0.15)]"
+              : "bg-[#EAF0EB] border-[rgba(44,95,63,0.15)]"
+          }`}>
+            <div>
+              <p className="text-[13px] font-semibold text-[#1C2B22]">
+                {mode === "break" ? "🌴 Break Mode" : "🎤 Contract Mode"}
+              </p>
+              <p className="text-[11px] text-[#8FA896] mt-0.5">
+                {mode === "break" ? "Relaxed daily check-ins" : "Full performance tracking"}
+              </p>
+            </div>
+            <button onClick={() => setShowModeModal(true)}
+              className="h-8 px-4 rounded-full border text-[11px] font-semibold transition-colors active:scale-95 bg-white text-[#5A7A65] border-[rgba(44,95,63,0.2)] hover:bg-[#F5F2EC]">
+              Switch
+            </button>
+          </div>
+        </div>
+
         {/* Notifications */}
         <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm p-5 mb-4">
           <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3">Reminders</p>
@@ -253,6 +280,7 @@ export default function ProfilePage() {
         </button>
 
       </div>
+      {showModeModal && <ModeToggleModal onClose={() => setShowModeModal(false)} />}
     </main>
   );
 }
