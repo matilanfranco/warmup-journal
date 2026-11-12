@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import CoolDownRunner from "@/components/cooldown/CoolDownRunner";
 
 export default function CoolDownClient() {
-  const searchParams = useSearchParams();
-  const routineId = searchParams.get("routine") ?? "cd-personal";
-  const routineLabel = routineId === "cd-personal" ? "Your cool down" : routineId.replace(/cd-/g, "").replace(/-/g, " ");
+  const routineLabel = "Your cool down";
 
   return (
     <main className="min-h-screen relative" style={{ backgroundColor: "#EEF2F9" }}>
@@ -44,7 +41,7 @@ export default function CoolDownClient() {
           <p className="text-[13px] text-[#7A6B9E]">{routineLabel}</p>
         </div>
 
-        <CoolDownRunner routineId={routineId} />
+        <CoolDownRunner />
       </div>
     </main>
   );

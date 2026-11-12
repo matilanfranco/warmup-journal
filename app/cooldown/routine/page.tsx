@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AUDIO_LIBRARY } from "@/components/data/audioLibrary";
-import { doc, setDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-
-const KEY = "cooldownRoutineItems";
+import { getCooldownIds, saveCooldownIds } from "@/lib/cooldown";
 
 function MiniPlayer({ src, isPlaying, onToggle }: {
   src: string;
@@ -76,13 +73,7 @@ export default function CoolDownRoutinePage() {
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem(KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setRoutineIds(parsed);
-      } catch {}
-    }
+    getCooldownIds().then(setRoutineIds);
   }, []);
 
   const add = (id: string) => setRoutineIds((p) => [...p, id]);
@@ -92,20 +83,13 @@ export default function CoolDownRoutinePage() {
     setSaving(true);
     setSavedOk(false);
     try {
-      localStorage.setItem(KEY, JSON.stringify(routineIds));
-      const uid = auth.currentUser?.uid;
-      if (uid) {
-        await setDoc(doc(db, `users/${uid}/routines`, "cooldown"), {
-          audioIds: routineIds,
-          updatedAt: new Date().toLocaleString(),
-        });
-      }
+      await saveCooldownIds(routineIds);
       setSavedOk(true);
-      setTimeout(() => router.push("/"), 800);
+      setTimeout(() => router.push("/sessions"), 800);
     } catch (e) {
       console.error(e);
       setSavedOk(true);
-      setTimeout(() => router.push("/"), 800);
+      setTimeout(() => router.push("/sessions"), 800);
     } finally {
       setSaving(false);
     }

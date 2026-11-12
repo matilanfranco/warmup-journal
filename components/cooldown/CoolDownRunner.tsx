@@ -6,15 +6,9 @@ import { AUDIO_LIBRARY } from "@/components/data/audioLibrary";
 import CoolDownAudioPlayer from "@/components/cooldown/CoolDownAudioPlayer";
 import { saveCoolDown, StepRecord, saveMotivationMessage } from "@/lib/firebaseService";
 import { getAppDate } from "@/lib/dateUtils";
+import { getCooldownIds } from "@/lib/cooldown";
 
-const PERSONAL_KEY = "cooldownRoutineItems";
 const PROGRESS_KEY = "cooldownProgress";
-
-const PRESET_ITEMS: Record<string, string[]> = {
-  "cd-breath-release": ["gorilla", "lip-buzz-cold-down", "lip-buzzes"],
-  "cd-night-wind": ["lip-buzzes", "nuh", "wuh-vocal-fry"],
-  "cd-post-show": ["larynx-vox-fry-reset", "lip-buzz-cold-down", "wuh-vocal-fry"],
-};
 
 type RoutineStep = { id: string; title: string; description: string; audioUrl: string; };
 type StepProgress =
@@ -50,7 +44,8 @@ function RatingButton({ value, selected, onClick }: { value: number; selected: b
   );
 }
 
-export default function CoolDownRunner({ routineId = "cd-personal" }: { routineId?: string }) {
+export default function CoolDownRunner() {
+  const routineId = "cd-personal";
   const [steps, setSteps] = useState<RoutineStep[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [progress, setProgress] = useState<StepProgress[]>([]);
@@ -73,16 +68,8 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(state));
   }, []);
 
-  useEffect(() => {
-    let ids: string[] = [];
-    if (routineId === "cd-personal") {
-      const s = localStorage.getItem(PERSONAL_KEY);
-      if (s) { try { ids = JSON.parse(s); } catch {} }
-      if (ids.length === 0) ids = AUDIO_LIBRARY.slice(0, 3).map((a) => a.id);
-    } else {
-      ids = PRESET_ITEMS[routineId] ?? AUDIO_LIBRARY.slice(0, 3).map((a) => a.id);
-    }
-    const newSteps = buildSteps(ids);
+  useEffect(() => { (async () => {
+    const newSteps = buildSteps(await getCooldownIds());
     setSteps(newSteps);
 
     // Try to restore today's progress
@@ -106,7 +93,7 @@ export default function CoolDownRunner({ routineId = "cd-personal" }: { routineI
     setProgress(newSteps.map(() => ({ status: "pending" })));
     setFinalComment(""); setSummaryOpen(false); setSaved(false);
     setLoaded(true);
-  }, [routineId]);
+  })(); }, []);
 
   const step = steps[currentIdx];
   const currentProgress = progress[currentIdx];
