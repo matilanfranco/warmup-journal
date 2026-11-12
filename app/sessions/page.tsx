@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import WarmupRoutineList from "@/components/routines/WarmupRoutineList";
 
 type Routine = {
   id: string;
@@ -10,13 +11,6 @@ type Routine = {
   itemsPreview: string[];
   kind: "personal" | "preset";
 };
-
-const WARMUP_ROUTINES: Routine[] = [
-  { id: "personal", kind: "personal", name: "Your routine", description: "Your personalized warmup routine.", itemsPreview: ["Lip trills", "Breath control", "Sirens"] },
-  { id: "high-range", kind: "preset", name: "High Range Routine", description: "Access top range with support and control.", itemsPreview: ["Sirens (up)", "High notes support", "Light resonance"] },
-  { id: "resistance", kind: "preset", name: "Resistance Routine", description: "Build stamina and consistency across sets.", itemsPreview: ["Sustains", "Intervals", "Short rests"] },
-  { id: "relax-reset", kind: "preset", name: "Relax & Reset", description: "Gentle recovery for tired days.", itemsPreview: ["Breath low", "Jaw/neck relax", "Soft hum"] },
-];
 
 const COOLDOWN_ROUTINES: Routine[] = [
   { id: "cd-personal", kind: "personal", name: "Your cool down", description: "Your personalized cool down routine.", itemsPreview: ["Soft hum", "Breath release", "Jaw relax"] },
@@ -27,22 +21,14 @@ const COOLDOWN_ROUTINES: Routine[] = [
 
 export default function SessionsPage() {
   const [tab, setTab] = useState<"warmup" | "cooldown">("warmup");
-  const [warmupId, setWarmupId] = useState("personal");
   const [cooldownId, setCooldownId] = useState("cd-personal");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const wId = localStorage.getItem("selectedRoutineId");
     const cId = localStorage.getItem("selectedCooldownId");
-    if (wId) setWarmupId(wId);
     if (cId) setCooldownId(cId);
     setLoaded(true);
   }, []);
-
-  useEffect(() => {
-    if (!loaded) return;
-    localStorage.setItem("selectedRoutineId", warmupId);
-  }, [warmupId, loaded]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -50,15 +36,16 @@ export default function SessionsPage() {
   }, [cooldownId, loaded]);
 
   const isCooldown = tab === "cooldown";
-  const routines = isCooldown ? COOLDOWN_ROUTINES : WARMUP_ROUTINES;
-  const selectedId = isCooldown ? cooldownId : warmupId;
-  const setSelectedId = isCooldown ? setCooldownId : setWarmupId;
+  // Warmup routines are user-created (WarmupRoutineList); cool downs keep their presets.
+  const routines = COOLDOWN_ROUTINES;
+  const selectedId = cooldownId;
+  const setSelectedId = setCooldownId;
   const selected = useMemo(() => routines.find((r) => r.id === selectedId) ?? routines[0], [selectedId, routines]);
   const presets = routines.filter((r) => r.kind === "preset");
   const personal = routines.find((r) => r.kind === "personal")!;
 
-  const sessionHref = isCooldown ? `/cooldown?routine=${selected.id}` : `/session?routine=${selected.id}`;
-  const editHref = isCooldown ? "/cooldown/routine" : "/warmups/routine";
+  const sessionHref = `/cooldown?routine=${selected.id}`;
+  const editHref = "/cooldown/routine";
 
   // ── Palette ───────────────────────────────────────────────
   const accent = isCooldown ? "#6B5B9E" : "#2C5F3F";
@@ -82,7 +69,7 @@ export default function SessionsPage() {
           <h1 className="text-[28px] leading-tight mb-1"
             style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontWeight: 400,
               color: isCooldown ? "#2D2650" : "#1C2B22" }}>
-            Sessions
+            Routines
           </h1>
           <p className="text-[13px]" style={{ color: isCooldown ? "#9B8EC4" : "#8FA896" }}>
             Choose your session type and routine.
@@ -105,6 +92,7 @@ export default function SessionsPage() {
           </button>
         </div>
 
+        {!isCooldown ? <WarmupRoutineList /> : (<>
         {/* Selected hero */}
         <div className={`bg-white rounded-3xl ${cardBorder} border shadow-sm p-5 mb-6`}>
           <div className="flex items-center gap-2 mb-3">
@@ -171,6 +159,7 @@ export default function SessionsPage() {
           </div>
         </div>
 
+        </>)}
       </div>
     </main>
   );

@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { registerSW, scheduleShowsReminder, scheduleDailyReminder } from "@/lib/notifications";
+import { registerSW, refreshPush } from "@/lib/push";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function SWRegister() {
-  useEffect(() => {
-    registerSW();
-    scheduleShowsReminder();
-    scheduleDailyReminder();
-  }, []);
+  const { user } = useAuth();
+
+  useEffect(() => { registerSW(); }, []);
+  useEffect(() => { if (user) refreshPush(); }, [user]);
 
   return null;
 }

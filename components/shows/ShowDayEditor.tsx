@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { saveShows, getShows } from "@/lib/firebaseService";
-import { markShowsLogged } from "@/lib/notifications";
+import { saveShows, getShows, deleteShows } from "@/lib/firebaseService";
 
 type RatingKey = "voice" | "energy" | "confidence" | "range";
 
@@ -102,7 +101,8 @@ function TimePicker({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-function EntryView({ show, onEdit }: { show: ShowEntry; onEdit: () => void }) {
+function EntryView({ show, onEdit, onDelete }: { show: ShowEntry; onEdit: () => void; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false);
   const avg = Math.round(Object.values(show.ratings).reduce((a, b) => a + b, 0) / 4);
   const stars = Array.from({ length: 5 }, (_, i) => (i < avg ? "★" : "☆")).join("");
 
@@ -115,7 +115,23 @@ function EntryView({ show, onEdit }: { show: ShowEntry; onEdit: () => void }) {
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-2">
           <span className="text-[13px] text-[#3D7A55]">{stars}</span>
-          <button onClick={onEdit}
+          {confirming ? (
+            <>
+              <button onClick={onDelete}
+                className="h-7 px-2.5 rounded-full bg-rose-50 border border-rose-200 text-[11px] font-semibold text-rose-600 active:scale-95">
+                Delete
+              </button>
+              <button onClick={() => setConfirming(false)} className="text-[11px] text-[#8FA896]">Keep</button>
+            </>
+          ) : (
+            <button onClick={() => setConfirming(true)} aria-label="Delete show"
+              className="w-7 h-7 rounded-full bg-white border border-[rgba(44,95,63,0.15)] flex items-center justify-center text-[#8FA896] hover:text-rose-500 transition-colors active:scale-95">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <path d="M2 3H9M4.5 3V2H6.5V3M3 3L3.5 9.5H7.5L8 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
+          <button onClick={onEdit} aria-label="Edit show"
             className="w-7 h-7 rounded-full bg-white border border-[rgba(44,95,63,0.15)] flex items-center justify-center text-[#8FA896] hover:text-[#2C5F3F] transition-colors active:scale-95">
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
               <path d="M7.5 1.5L9.5 3.5L3.5 9.5H1.5V7.5L7.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
@@ -294,7 +310,12 @@ function ShowForm({ index, initial, onSave, onCancel }: {
   );
 }
 
-export default function TodayShowsCard() {
+// Log, edit and delete the shows of one day. Any date can be edited.
+export default function ShowDayEditor({ date, title, onChange }: {
+  date: string;
+  title: string;
+  onChange?: () => void;
+}) {
   const [shows, setShows] = useState<(ShowEntry | null)[]>([null]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
@@ -302,10 +323,13 @@ export default function TodayShowsCard() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    setShows([null]);
+    setEditingIdx(null);
+    setSavedAt(null);
+    setLoaded(false);
     async function load() {
       try {
-        const today = new Date().toISOString().split("T")[0];
-        const data = await getShows(today);
+        const data = await getShows(date);
         if (data && data.shows.length > 0) {
           const loaded = data.shows.map((s) => ({
             ...s,
@@ -323,19 +347,23 @@ export default function TodayShowsCard() {
       }
     }
     load();
-  }, []);
+  }, [date]);
 
   const persistShows = async (updated: (ShowEntry | null)[]) => {
     const done = updated.filter((s): s is ShowEntry => s?.done === true);
-    if (done.length === 0) return;
     setSaving(true);
     try {
-      await saveShows(done.map((s) => ({
-        name: s.name, time: s.time, ratings: s.ratings,
-        feeling: s.feelings[0] ?? null, feelings: s.feelings, note: s.note,
-      })));
-      setSavedAt(new Date().toISOString());
-      markShowsLogged();
+      if (done.length === 0) {
+        await deleteShows(date);
+        setSavedAt(null);
+      } else {
+        await saveShows(done.map((s) => ({
+          name: s.name, time: s.time, ratings: s.ratings,
+          feeling: s.feelings[0] ?? null, feelings: s.feelings, note: s.note,
+        })), date);
+        setSavedAt(new Date().toISOString());
+      }
+      onChange?.();
     } catch (e) {
       console.error("Error saving shows:", e);
     } finally {
@@ -350,17 +378,23 @@ export default function TodayShowsCard() {
     await persistShows(updated);
   };
 
+  const handleDelete = async (idx: number) => {
+    const remaining = shows.filter((_, i) => i !== idx);
+    setShows(remaining.length > 0 ? remaining : [null]);
+    await persistShows(remaining);
+  };
+
   const anyDone = shows.some((s) => s?.done);
   const formatSavedAt = (iso: string) =>
     new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
-    <div className="mx-4 bg-white rounded-3xl p-5 border border-[rgba(44,95,63,0.08)] shadow-sm">
+    <div className="bg-white rounded-3xl p-5 border border-[rgba(44,95,63,0.08)] shadow-sm">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="text-[16px] font-semibold text-[#1C2B22]"
             style={{ fontFamily: "'Playfair Display', serif" }}>
-            Tonight's performances
+            {title}
           </h2>
           <p className="text-[12px] text-[#8FA896] mt-0.5">Log your shows · tap ✏️ to edit</p>
         </div>
@@ -379,7 +413,7 @@ export default function TodayShowsCard() {
                 onSave={(s) => handleSave(i, s)} onCancel={() => setEditingIdx(null)} />;
             }
             if (show?.done) {
-              return <EntryView key={i} show={show} onEdit={() => setEditingIdx(i)} />;
+              return <EntryView key={i} show={show} onEdit={() => setEditingIdx(i)} onDelete={() => handleDelete(i)} />;
             }
             return (
               <button key={i} type="button" onClick={() => setEditingIdx(i)}

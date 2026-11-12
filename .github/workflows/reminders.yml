@@ -1,0 +1,18 @@
+# Calls the warmup reminder endpoint every hour.
+# Needs two repo secrets: APP_URL (e.g. https://your-app.vercel.app) and CRON_SECRET.
+name: Warmup reminders
+
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminders
+        run: |
+          curl --fail-with-body -sS \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/reminders"

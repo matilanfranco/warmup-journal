@@ -31,3 +31,15 @@ export function formatDisplayDate(dateStr: string): string {
     weekday: "short", month: "short", day: "numeric",
   }).format(d);
 }
+
+// Add (or subtract) whole days to a "YYYY-MM-DD" string.
+export function shiftDate(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d + days);
+  return toDateStr(date);
+}
+
+export function toDateStr(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}

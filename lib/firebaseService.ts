@@ -1,8 +1,8 @@
 import { db, auth } from "@/lib/firebase";
 import {
-  doc, setDoc, getDoc, collection, getDocs, orderBy, query, limit,
+  doc, setDoc, getDoc, deleteDoc, collection, getDocs, orderBy, query, limit, where,
 } from "firebase/firestore";
-import { getAppDate, getLocalTimestamp } from "@/lib/dateUtils";
+import { getAppDate, getLocalTimestamp, shiftDate } from "@/lib/dateUtils";
 
 function clean<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj, (_, v) => (v === undefined ? null : v)));
@@ -12,6 +12,18 @@ function userBase() {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error("Not authenticated");
   return `users/${uid}`;
+}
+
+// Fetch every doc of a per-day collection whose date is in [from, to] (inclusive).
+// Omit `from` / `to` for an open range.
+async function getInRange<T>(name: string, from?: string, to?: string): Promise<T[]> {
+  const ref = collection(db, `${userBase()}/${name}`);
+  const clauses = [];
+  if (from) clauses.push(where("date", ">=", from));
+  if (to) clauses.push(where("date", "<=", to));
+  const q = query(ref, ...clauses, orderBy("date", "asc"));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as T);
 }
 
 // ─── SESSION ────────────────────────────────────────────────
@@ -26,6 +38,8 @@ export type StepRecord = {
 export type SessionRecord = {
   date: string;
   routineId: string;
+  routineName?: string; // missing on sessions saved before named routines
+
   steps: StepRecord[];
   finalComment: string;
   completedAt: string;
@@ -49,6 +63,9 @@ export async function getRecentSessions(count = 14): Promise<SessionRecord[]> {
   const snap = await getDocs(q);
   return snap.docs.map((d) => d.data() as SessionRecord);
 }
+
+export const getSessionsInRange = (from?: string, to?: string) =>
+  getInRange<SessionRecord>("sessions", from, to);
 
 // ─── SHOWS ──────────────────────────────────────────────────
 
@@ -86,6 +103,13 @@ export async function getRecentShows(count = 14): Promise<DayShows[]> {
   return snap.docs.map((d) => d.data() as DayShows);
 }
 
+export async function deleteShows(date: string) {
+  await deleteDoc(doc(db, `${userBase()}/shows`, date));
+}
+
+export const getShowsInRange = (from?: string, to?: string) =>
+  getInRange<DayShows>("shows", from, to);
+
 // ─── COOL DOWN ──────────────────────────────────────────────
 
 export type CoolDownRecord = {
@@ -108,38 +132,26 @@ export async function getRecentCoolDowns(count = 14): Promise<CoolDownRecord[]> 
   return snap.docs.map((d) => d.data() as CoolDownRecord);
 }
 
+export const getCoolDownsInRange = (from?: string, to?: string) =>
+  getInRange<CoolDownRecord>("cooldowns", from, to);
+
 // ─── STATS ──────────────────────────────────────────────────
 
+// Consecutive days with a completed warmup. Today not being done yet
+// doesn't break the streak — it counts back from yesterday in that case.
 export async function getStreak(): Promise<number> {
-  // Streak counts any daily activity:
-  // warmup session, shows logged, cooldown, rest day, or break check-in
-  const [sessions, restDays, shows, cooldowns, breakCheckins] = await Promise.all([
-    getRecentSessions(30),
-    getRecentRestDays(30),
-    getRecentShows(30),
-    getRecentCoolDowns(30),
-    getRecentBreakCheckIns(30),
-  ]);
+  const sessions = await getRecentSessions(400);
+  return calcWarmupStreak(sessions.map((s) => s.date));
+}
 
-  const dateSet = new Set([
-    ...sessions.map((s) => s.date),
-    ...restDays.map((r) => r.date),
-    ...shows.map((s) => s.date),
-    ...cooldowns.map((c) => c.date),
-    ...breakCheckins.map((b) => b.date),
-  ]);
-
-  if (dateSet.size === 0) return 0;
-  const dates = Array.from(dateSet).sort().reverse();
+export function calcWarmupStreak(dates: string[]): number {
+  const set = new Set(dates);
+  let cursor = getAppDate();
+  if (!set.has(cursor)) cursor = shiftDate(cursor, -1);
   let streak = 0;
-  let current = new Date();
-  if (current.getHours() < 6) current.setDate(current.getDate() - 1);
-  current.setHours(0, 0, 0, 0);
-  for (const dateStr of dates) {
-    const [y, m, d] = dateStr.split("-").map(Number);
-    const date = new Date(y, m - 1, d);
-    const diff = Math.floor((current.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff <= 1) { streak++; current = date; } else break;
+  while (set.has(cursor)) {
+    streak++;
+    cursor = shiftDate(cursor, -1);
   }
   return streak;
 }
@@ -154,15 +166,10 @@ export async function getAvgRating(): Promise<number | null> {
   return Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10;
 }
 
+// Warmups in the last 7 days (today included).
 export async function getSessionsThisWeek(): Promise<number> {
-  const sessions = await getRecentSessions(7);
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  weekAgo.setHours(0, 0, 0, 0);
-  return sessions.filter((s) => {
-    const [y, m, d] = s.date.split("-").map(Number);
-    return new Date(y, m - 1, d) >= weekAgo;
-  }).length;
+  const sessions = await getSessionsInRange(shiftDate(getAppDate(), -6));
+  return sessions.length;
 }
 
 // ─── DAILY CHECK-IN ─────────────────────────────────────────
@@ -193,6 +200,9 @@ export async function getRecentCheckIns(count = 20): Promise<CheckIn[]> {
   return snap.docs.map((d) => d.data() as CheckIn);
 }
 
+export const getCheckInsInRange = (from?: string, to?: string) =>
+  getInRange<CheckIn>("checkins", from, to);
+
 export async function getCheckIn(date: string): Promise<CheckIn | null> {
   const ref = doc(db, `${userBase()}/checkins`, date);
   const snap = await getDoc(ref);
@@ -215,14 +225,7 @@ export async function saveMotivationMessage(message: string) {
 
 export async function getYesterdayMessage(): Promise<MotivationMessage | null> {
   try {
-    const yesterday = new Date();
-    if (yesterday.getHours() < 6) yesterday.setDate(yesterday.getDate() - 2);
-    else yesterday.setDate(yesterday.getDate() - 1);
-    const y = yesterday.getFullYear();
-    const m = String(yesterday.getMonth() + 1).padStart(2, "0");
-    const d = String(yesterday.getDate()).padStart(2, "0");
-    const dateStr = `${y}-${m}-${d}`;
-    const ref = doc(db, `${userBase()}/motivation`, dateStr);
+    const ref = doc(db, `${userBase()}/motivation`, shiftDate(getAppDate(), -1));
     const snap = await getDoc(ref);
     return snap.exists() ? (snap.data() as MotivationMessage) : null;
   } catch { return null; }
@@ -240,6 +243,7 @@ export type RestDayData = {
   sleep: boolean | null;
   electrolytes: boolean | null;
   vocalRest: boolean | null;
+  // Written by the old built-in AI feature; kept so past entries still show it.
   aiAnalysis?: string | null;
   aiAnalysisDate?: string | null;
   savedAt: string;
@@ -257,11 +261,6 @@ export async function getRestDay(date: string): Promise<RestDayData | null> {
   return snap.exists() ? (snap.data() as RestDayData) : null;
 }
 
-export async function saveAiAnalysis(date: string, analysis: string) {
-  const ref = doc(db, `${userBase()}/restdays`, date);
-  await setDoc(ref, clean({ aiAnalysis: analysis, aiAnalysisDate: getLocalTimestamp() }), { merge: true });
-}
-
 export async function getRecentRestDays(count = 14): Promise<RestDayData[]> {
   const ref = collection(db, `${userBase()}/restdays`);
   const q = query(ref, orderBy("date", "desc"), limit(count));
@@ -269,78 +268,15 @@ export async function getRecentRestDays(count = 14): Promise<RestDayData[]> {
   return snap.docs.map((d) => d.data() as RestDayData);
 }
 
-// ─── AI ANALYSIS ─────────────────────────────────────────────
+export const getRestDaysInRange = (from?: string, to?: string) =>
+  getInRange<RestDayData>("restdays", from, to);
 
-export type AiAnalysis = {
-  date: string;
-  text: string;
-  savedAt: string;
-};
-
-
-
-export async function getLatestAiAnalysis(): Promise<AiAnalysis | null> {
-  try {
-    const ref = collection(db, `${userBase()}/aianalysis`);
-    const q = query(ref, orderBy("date", "desc"), limit(1));
-    const snap = await getDocs(q);
-    if (snap.empty) return null;
-    return snap.docs[0].data() as AiAnalysis;
-  } catch { return null; }
-}
-
-// ─── APP MODE ────────────────────────────────────────────────
-
-export type AppMode = "contract" | "break";
-
-export type ModePeriod = {
-  mode: AppMode;
-  startDate: string;
-  endDate?: string;
-  label?: string;
-};
-
-export type AppModeData = {
-  current: AppMode;
-  currentStartDate: string;
-  history: ModePeriod[];
-};
-
-export async function getAppMode(): Promise<AppModeData | null> {
-  try {
-    const ref = doc(db, `${userBase()}/settings`, "appMode");
-    const snap = await getDoc(ref);
-    return snap.exists() ? (snap.data() as AppModeData) : null;
-  } catch { return null; }
-}
-
-export async function setAppMode(newMode: AppMode, currentData: AppModeData | null): Promise<void> {
-  const today = getAppDate();
-  const prev = currentData ?? { current: "contract", currentStartDate: today, history: [] };
-
-  const closedPeriod: ModePeriod = {
-    mode: prev.current,
-    startDate: prev.currentStartDate,
-    endDate: today,
-  };
-
-  const updated: AppModeData = {
-    current: newMode,
-    currentStartDate: today,
-    history: [...(prev.history ?? []), closedPeriod],
-  };
-
-  const ref = doc(db, `${userBase()}/settings`, "appMode");
-  await setDoc(ref, clean(updated));
-}
-
-// ─── BREAK CHECK-IN ──────────────────────────────────────────
-
-export type BreakActivity = "vocalized" | "learned-songs" | "practiced-technique" | "rest" | "nothing";
+// ─── LEGACY: BREAK CHECK-INS ─────────────────────────────────
+// Break mode was removed. Old entries are only read, for the data export.
 
 export type BreakCheckIn = {
   date: string;
-  activities: BreakActivity[];
+  activities: string[];
   vocalRating: number | null;
   water: boolean | null;
   sleep: boolean | null;
@@ -349,21 +285,27 @@ export type BreakCheckIn = {
   savedAt: string;
 };
 
-export async function saveBreakCheckIn(data: Omit<BreakCheckIn, "date" | "savedAt">): Promise<void> {
-  const date = getAppDate();
-  const ref = doc(db, `${userBase()}/breakcheckins`, date);
-  await setDoc(ref, clean({ ...data, date, savedAt: getLocalTimestamp() }));
+export const getBreakCheckInsInRange = (from?: string, to?: string) =>
+  getInRange<BreakCheckIn>("breakcheckins", from, to);
+
+// ─── PUSH REMINDERS ──────────────────────────────────────────
+// Read by the server cron (app/api/cron/reminders) to send the daily warmup reminder.
+
+export type PushSettings = {
+  enabled: boolean;
+  tokens: string[];
+  timeZone: string;
+  reminderHour: number; // 0-23, local time
+  lastSentDate?: string | null;
+  updatedAt: string;
+};
+
+export async function getPushSettings(): Promise<PushSettings | null> {
+  const snap = await getDoc(doc(db, `${userBase()}/settings`, "push"));
+  return snap.exists() ? (snap.data() as PushSettings) : null;
 }
 
-export async function getBreakCheckIn(date: string): Promise<BreakCheckIn | null> {
-  const ref = doc(db, `${userBase()}/breakcheckins`, date);
-  const snap = await getDoc(ref);
-  return snap.exists() ? (snap.data() as BreakCheckIn) : null;
-}
-
-export async function getRecentBreakCheckIns(count = 14): Promise<BreakCheckIn[]> {
-  const ref = collection(db, `${userBase()}/breakcheckins`);
-  const q = query(ref, orderBy("date", "desc"), limit(count));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data() as BreakCheckIn);
+export async function savePushSettings(data: Partial<PushSettings>) {
+  const ref = doc(db, `${userBase()}/settings`, "push");
+  await setDoc(ref, clean({ ...data, updatedAt: getLocalTimestamp() }), { merge: true });
 }

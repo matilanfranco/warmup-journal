@@ -5,10 +5,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import { getAudioById } from "@/components/data/audioLibrary";
 import AudioPlayer from "@/components/session/AudioPlayer";
 import { saveSession, StepRecord } from "@/lib/firebaseService";
-import { scheduleWarmupReminder } from "@/lib/notifications";
 import { getAppDate } from "@/lib/dateUtils";
 
-type SessionRunnerProps = { routineId: string; showCheckInButton?: boolean; onOpenCheckIn?: () => void; };
+import type { WarmupRoutine } from "@/lib/routines";
+
+type SessionRunnerProps = { routine: WarmupRoutine; showCheckInButton?: boolean; onOpenCheckIn?: () => void; };
 
 type RoutineStep = {
   id: string;
@@ -31,14 +32,7 @@ type PersistedState = {
   completed: boolean;
 };
 
-const PERSONAL_ROUTINE_KEY = "personalRoutineItems";
 const PROGRESS_KEY = "warmupProgress";
-
-const PRESET_ITEMS: Record<string, string[]> = {
-  "high-range": ["sirens-medium", "high-notes-support"],
-  resistance: ["breath-control", "sirens-medium"],
-  "relax-reset": ["breath-control", "relax-jaw-neck"],
-};
 
 function buildSteps(audioIds: string[]): RoutineStep[] {
   return audioIds
@@ -68,7 +62,8 @@ function RatingButton({ value, selected, onClick }: { value: number; selected: b
   );
 }
 
-export default function SessionRunner({ routineId, showCheckInButton, onOpenCheckIn }: SessionRunnerProps) {
+export default function SessionRunner({ routine, showCheckInButton, onOpenCheckIn }: SessionRunnerProps) {
+  const routineId = routine.id;
   const [steps, setSteps] = useState<RoutineStep[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [progress, setProgress] = useState<StepProgress[]>([]);
@@ -102,14 +97,7 @@ export default function SessionRunner({ routineId, showCheckInButton, onOpenChec
 
   // ── Load steps and resume from localStorage if same day ───
   useEffect(() => {
-    let ids: string[] = [];
-    if (routineId === "personal") {
-      const s = localStorage.getItem(PERSONAL_ROUTINE_KEY);
-      if (s) { try { ids = JSON.parse(s); } catch {} }
-    } else {
-      ids = PRESET_ITEMS[routineId] ?? [];
-    }
-    const newSteps = buildSteps(ids);
+    const newSteps = buildSteps(routine.audioIds);
     setSteps(newSteps);
 
     // Try to restore today's progress
@@ -143,6 +131,7 @@ export default function SessionRunner({ routineId, showCheckInButton, onOpenChec
     setSummaryOpen(false);
     setSaved(false);
     setLoaded(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routineId]);
 
   const step = steps[currentIdx];
@@ -155,8 +144,6 @@ export default function SessionRunner({ routineId, showCheckInButton, onOpenChec
     const updated = progress.map((s, i) => i === currentIdx ? { ...s, status: "rated" as const, rating } : s);
     setProgress(updated);
     persist(currentIdx, updated, finalComment, false, steps, routineId);
-    // Schedule reminder on first interaction
-    scheduleWarmupReminder();
   };
 
   const skip = () => {
@@ -212,7 +199,7 @@ export default function SessionRunner({ routineId, showCheckInButton, onOpenChec
           note: p?.note ?? null,
         };
       });
-      await saveSession({ routineId, steps: stepRecords, finalComment });
+      await saveSession({ routineId, routineName: routine.name, steps: stepRecords, finalComment });
       setSaved(true);
       persist(currentIdx, progress, finalComment, true, steps, routineId);
     } catch (e) {
@@ -234,7 +221,7 @@ export default function SessionRunner({ routineId, showCheckInButton, onOpenChec
         <div className="w-12 h-12 rounded-2xl bg-[#EAF0EB] flex items-center justify-center text-xl mx-auto mb-3">🎤</div>
         <p className="text-[14px] font-semibold text-[#1C2B22] mb-1">No exercises yet</p>
         <p className="text-[12px] text-[#8FA896] mb-4">Add exercises in your routine to start a session.</p>
-        <a href="/warmups/routine" className="inline-flex h-9 items-center px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold">
+        <a href={`/warmups/routine?id=${routineId}`} className="inline-flex h-9 items-center px-5 rounded-full bg-[#2C5F3F] text-white text-[12px] font-semibold">
           Edit routine →
         </a>
       </div>

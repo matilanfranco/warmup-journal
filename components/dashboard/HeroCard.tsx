@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getAudioById } from "@/components/data/audioLibrary";
-import { getStreak, getAvgRating, getSessionsThisWeek, getYesterdayMessage } from "@/lib/firebaseService";
-import { getAppDate } from "@/lib/dateUtils";
+import { getStreak, getAvgRating, getSessionsThisWeek, getYesterdayMessage, getSessionsInRange } from "@/lib/firebaseService";
+import { getAppDate, shiftDate } from "@/lib/dateUtils";
+import { listRoutines, pickSelected, WarmupRoutine } from "@/lib/routines";
 
-const PERSONAL_ROUTINE_KEY = "personalRoutineItems";
 const PROGRESS_KEY = "warmupProgress";
 const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 type WarmupStatus = "not-started" | "in-progress" | "completed";
 
 export default function HeroCard() {
-  const [routineIds, setRoutineIds] = useState<string[]>([]);
+  const [routine, setRoutine] = useState<WarmupRoutine | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [streak, setStreak] = useState<number>(0);
   const [avgRating, setAvgRating] = useState<number | null>(null);
@@ -21,15 +21,19 @@ export default function HeroCard() {
   const [statsLoaded, setStatsLoaded] = useState(false);
   const [warmupStatus, setWarmupStatus] = useState<WarmupStatus>("not-started");
   const [yesterdayMsg, setYesterdayMsg] = useState<string | null>(null);
+  const [weekDates, setWeekDates] = useState<Set<string>>(new Set());
+
+  // Monday of the current (app) week
+  const appToday = getAppDate();
+  const [ay, am, ad] = appToday.split("-").map(Number);
+  const todayIdx = (new Date(ay, am - 1, ad).getDay() + 6) % 7;
+  const monday = shiftDate(appToday, -todayIdx);
 
   useEffect(() => {
-    const saved = localStorage.getItem(PERSONAL_ROUTINE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) setRoutineIds(parsed);
-      } catch {}
-    }
+    listRoutines()
+      .then((all) => setRoutine(pickSelected(all)))
+      .catch(console.error)
+      .finally(() => setLoaded(true));
 
     // Check today's warmup progress
     try {
@@ -43,16 +47,21 @@ export default function HeroCard() {
         }
       }
     } catch {}
-
-    setLoaded(true);
   }, []);
 
   useEffect(() => {
     async function loadStats() {
       try {
-        const [s, r, w, msg] = await Promise.all([getStreak(), getAvgRating(), getSessionsThisWeek(), getYesterdayMessage()]);
+        const [s, r, w, msg, week] = await Promise.all([
+          getStreak(), getAvgRating(), getSessionsThisWeek(), getYesterdayMessage(),
+          getSessionsInRange(monday, appToday),
+        ]);
         if (msg?.message) setYesterdayMsg(msg.message);
         setStreak(s); setAvgRating(r); setThisWeek(w);
+        const dates = new Set(week.map((x) => x.date));
+        setWeekDates(dates);
+        // Saved warmup counts as done even if it was done on another device
+        if (dates.has(appToday)) setWarmupStatus("completed");
       } catch (e) {
         console.error("Stats error:", e);
       } finally {
@@ -62,17 +71,13 @@ export default function HeroCard() {
     loadStats();
   }, []);
 
-  const items = routineIds.map((id) => getAudioById(id)).filter(Boolean);
+  const items = (routine?.audioIds ?? []).map((id) => getAudioById(id)).filter(Boolean);
   const totalSec = items.reduce((acc, item) => acc + (item?.durationSec ?? 0), 0);
   const totalMin = Math.round(totalSec / 60) || 0;
   const preview = items.slice(0, 3).map((i) => i!.name.split(" ")[0]);
   const extra = items.length - 3;
 
-  const today = new Date().getDay();
-  const todayIdx = today === 0 ? 6 : today - 1;
-  const completedDays = Array.from({ length: 7 }, (_, i) =>
-    i < todayIdx && i >= Math.max(0, todayIdx - (streak - 1))
-  );
+  const completedDays = Array.from({ length: 7 }, (_, i) => i < todayIdx && weekDates.has(shiftDate(monday, i)));
 
   const date = new Intl.DateTimeFormat("en-US", {
     weekday: "long", month: "long", day: "numeric",
@@ -120,26 +125,30 @@ export default function HeroCard() {
           </div>
           <p className="text-[12px] text-[#8FA896] mb-5">{date}</p>
 
-          <Link href="/session"
-            className="flex items-center justify-center gap-2 w-full h-12 rounded-full text-[15px] font-semibold tracking-wide active:scale-[0.98] transition-transform"
-            style={btnStyle}>
-            {btnLabel}
-          </Link>
+          {loaded && !routine ? (
+            <Link href="/warmups/routine"
+              className="flex items-center justify-center gap-2 w-full h-12 rounded-full text-[15px] font-semibold tracking-wide active:scale-[0.98] transition-transform"
+              style={{ background: "linear-gradient(135deg, #2C5F3F 0%, #3D7A55 100%)", color: "white" }}>
+              Create your first routine →
+            </Link>
+          ) : (
+            <Link href={routine ? `/session?routine=${routine.id}` : "/session"}
+              className="flex items-center justify-center gap-2 w-full h-12 rounded-full text-[15px] font-semibold tracking-wide active:scale-[0.98] transition-transform"
+              style={btnStyle}>
+              {btnLabel}
+            </Link>
+          )}
 
           <div className="flex gap-2 mt-3">
-            {loaded && preview.length > 0 && (
+            {loaded && routine && (
               <div className="flex-1 flex items-center h-9 rounded-full bg-white/70 border border-white/80 px-3 gap-1 overflow-hidden">
-                {preview.map((name, i) => (
-                  <span key={i} className="text-[11px] text-[#3D4A3E] font-medium shrink-0">
-                    {name}{i < preview.length - 1 ? " · " : ""}
-                  </span>
-                ))}
-                {extra > 0 && <span className="text-[11px] text-[#8FA896]">· +{extra}</span>}
+                <span className="text-[11px] text-[#1C2B22] font-bold shrink-0">{routine.name}</span>
+                {preview.length > 0 && <span className="text-[11px] text-[#8FA896] truncate">· {preview.join(" · ")}{extra > 0 ? ` +${extra}` : ""}</span>}
               </div>
             )}
-            <Link href="/warmups/routine"
+            <Link href="/sessions"
               className="flex items-center justify-center h-9 rounded-full bg-white/70 border border-white/80 px-4 text-[12px] font-medium text-[#2C5F3F] whitespace-nowrap">
-              Customize
+              {routine ? "Change" : "Routines"}
             </Link>
           </div>
         </div>
@@ -172,7 +181,7 @@ export default function HeroCard() {
         <div className="flex gap-3 pt-4 border-t border-[rgba(44,95,63,0.07)]">
           {[
             { label: "Streak", value: statsLoaded ? (streak > 0 ? `${streak}d` : "—") : "..." },
-            { label: "This week", value: statsLoaded ? (thisWeek > 0 ? `${thisWeek}` : "—") : "..." },
+            { label: "Last 7 days", value: statsLoaded ? (thisWeek > 0 ? `${thisWeek}` : "—") : "..." },
             { label: "Avg rating", value: statsLoaded ? (avgRating !== null ? `${avgRating}` : "—") : "..." },
           ].map((s) => (
             <div key={s.label} className="flex-1 text-center">

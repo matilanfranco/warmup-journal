@@ -3,63 +3,51 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+const stroke = (active: boolean, cd: boolean) => (active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896");
+const fill = (active: boolean, cd: boolean) => (active ? (cd ? "rgba(155,142,196,0.15)" : "rgba(44,95,63,0.1)") : "none");
+
 const tabs = [
   {
     href: "/",
-    label: "Home",
+    label: "Today",
     icon: (active: boolean, cd: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path d="M3 8.5L10 3L17 8.5V17H13V13H7V17H3V8.5Z"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5" strokeLinejoin="round"
-          fill={active ? (cd ? "rgba(155,142,196,0.15)" : "rgba(44,95,63,0.1)") : "none"} />
+          stroke={stroke(active, cd)} strokeWidth="1.5" strokeLinejoin="round" fill={fill(active, cd)} />
+      </svg>
+    ),
+  },
+  {
+    href: "/shows",
+    label: "Shows",
+    icon: (active: boolean, cd: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="7" y="2.5" width="6" height="9" rx="3"
+          stroke={stroke(active, cd)} strokeWidth="1.5" fill={fill(active, cd)} />
+        <path d="M4.5 9.5C4.5 12.5 7 14.5 10 14.5C13 14.5 15.5 12.5 15.5 9.5M10 14.5V17.5M7 17.5H13"
+          stroke={stroke(active, cd)} strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    href: "/calendar",
+    label: "Calendar",
+    icon: (active: boolean, cd: boolean) => (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="3" y="4" width="14" height="13" rx="2.5"
+          stroke={stroke(active, cd)} strokeWidth="1.5" fill={fill(active, cd)} />
+        <path d="M3 8H17M7 2.5V5.5M13 2.5V5.5"
+          stroke={stroke(active, cd)} strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },
   {
     href: "/sessions",
-    label: "Sessions",
+    label: "Routines",
     icon: (active: boolean, cd: boolean) => (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <circle cx="10" cy="10" r="7"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5"
-          fill={active ? (cd ? "rgba(155,142,196,0.15)" : "rgba(44,95,63,0.1)") : "none"} />
-        <circle cx="10" cy="10" r="3"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5" />
-        <path d="M10 3V5M10 15V17M3 10H5M15 10H17"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    href: "/history",
-    label: "Log",
-    icon: (active: boolean, cd: boolean) => (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="4" y="2" width="12" height="16" rx="2.5"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5"
-          fill={active ? (cd ? "rgba(155,142,196,0.15)" : "rgba(44,95,63,0.1)") : "none"} />
-        <path d="M7.5 7H12.5M7.5 10H12.5M7.5 13H10"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    href: "/about",
-    label: "Insights",
-    icon: (active: boolean, cd: boolean) => (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M4 14L7 10L10 12L13 7L16 9"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M4 17H16"
-          stroke={active ? (cd ? "#9B8EC4" : "#2C5F3F") : "#8FA896"}
-          strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="10" cy="10" r="7" stroke={stroke(active, cd)} strokeWidth="1.5" fill={fill(active, cd)} />
+        <path d="M8.5 7.2V12.8L13 10L8.5 7.2Z" stroke={stroke(active, cd)} strokeWidth="1.5" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -68,7 +56,6 @@ const tabs = [
 export default function BottomNav() {
   const pathname = usePathname();
   const isCooldown = pathname.startsWith("/cooldown");
-  const isBreak = pathname.startsWith("/break");
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
@@ -76,8 +63,6 @@ export default function BottomNav() {
         <div className={`border-t px-2 pb-6 pt-2 transition-colors duration-300 ${
           isCooldown
             ? "bg-[#2D2650]/95 backdrop-blur-md border-[rgba(180,160,220,0.15)]"
-            : isBreak
-            ? "bg-[#FFF8F0]/95 backdrop-blur-md border-[rgba(139,94,60,0.1)]"
             : "bg-white/95 backdrop-blur-md border-[rgba(44,95,63,0.08)]"
         }`}>
           <div className="flex items-center justify-around">

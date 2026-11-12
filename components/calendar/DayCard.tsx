@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getRecentSessions, getRecentShows, getRecentCoolDowns, getRecentRestDays, SessionRecord, DayShows, CoolDownRecord, RestDayData } from "@/lib/firebaseService";
-import { useMemo } from "react";
+import { useState } from "react";
+import { SessionRecord, DayShows, CoolDownRecord, RestDayData } from "@/lib/firebaseService";
 
-type DayEntry = {
+export type DayEntry = {
   date: string;
   session?: SessionRecord;
   shows?: DayShows;
@@ -97,98 +96,14 @@ function ShowCard({ show }: { show: any }) {
   );
 }
 
-export default function HistoryPage() {
-  const [entries, setEntries] = useState<DayEntry[]>([]);
-  const [rawShows, setRawShows] = useState<DayShows[]>([]);
-  const [rawSessions, setRawSessions] = useState<SessionRecord[]>([]);
-  const [rawRestDays, setRawRestDays] = useState<RestDayData[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const [sessions, shows, cooldowns, restDays] = await Promise.all([
-          getRecentSessions(20),
-          getRecentShows(20),
-          getRecentCoolDowns(20),
-          getRecentRestDays(20),
-        ]);
-        const map: Record<string, DayEntry> = {};
-        sessions.forEach((s) => { map[s.date] = { date: s.date, session: s }; });
-        shows.forEach((s) => {
-          if (map[s.date]) map[s.date].shows = s;
-          else map[s.date] = { date: s.date, shows: s };
-        });
-        cooldowns.forEach((c) => {
-          if (map[c.date]) map[c.date].cooldown = c;
-          else map[c.date] = { date: c.date, cooldown: c };
-        });
-        restDays.forEach((r) => {
-          if (map[r.date]) map[r.date].restDay = r;
-          else map[r.date] = { date: r.date, restDay: r };
-        });
-        const sorted = Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
-        setEntries(sorted);
-        // Store raw data for rest day summaries
-        setRawShows(shows);
-        setRawSessions(sessions);
-        setRawRestDays(restDays);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
-  return (
-    <main className="min-h-screen bg-[#F5F2EC]">
-      <div className="mx-auto max-w-md px-4 pt-2 pb-28">
-        <div className="mb-6">
-          <h1 className="text-[28px] text-[#1C2B22] leading-tight mb-1"
-            style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontWeight: 400 }}>
-            Journal
-          </h1>
-          <p className="text-[13px] text-[#8FA896]">Your voice history, day by day.</p>
-        </div>
-
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-2xl border border-[rgba(44,95,63,0.08)] p-4 animate-pulse">
-                <div className="h-3 bg-[#EAF0EB] rounded-full w-24 mb-3" />
-                <div className="h-4 bg-[#EAF0EB] rounded-full w-40 mb-2" />
-                <div className="h-3 bg-[#EAF0EB] rounded-full w-32" />
-              </div>
-            ))}
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm p-8 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-[#EAF0EB] flex items-center justify-center text-xl mx-auto mb-3">📖</div>
-            <p className="text-[14px] font-semibold text-[#1C2B22] mb-1">No entries yet</p>
-            <p className="text-[12px] text-[#8FA896]">Complete a warmup session to start your journal.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {entries.map((entry) => (
-              <DayCard key={entry.date} entry={entry}
-                allShows={rawShows} allSessions={rawSessions} allRestDays={rawRestDays} />
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
-  );
-}
-
-function DayCard({ entry, allShows, allSessions, allRestDays }: {
+export default function DayCard({ entry, allShows, allSessions, allRestDays, defaultOpen = false }: {
   entry: DayEntry;
   allShows: DayShows[];
   allSessions: SessionRecord[];
   allRestDays: RestDayData[];
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const { session, shows } = entry;
   const avg = session ? avgRating(session) : null;
   const completedSteps = session?.steps.filter((s) => s.status === "rated").length ?? 0;
@@ -197,7 +112,8 @@ function DayCard({ entry, allShows, allSessions, allRestDays }: {
   // Compute run summary for rest day
   const allShowsFlat = allShows.flatMap((d) => d.shows.map((s) => ({ ...s, date: d.date })));
   const allSessionsFlat = allSessions;
-  const prevRestDaysFor = (date: string) => allRestDays.filter((r) => r.date < date);
+  const prevRestDaysFor = (date: string) =>
+    allRestDays.filter((r) => r.date < date).sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="bg-white rounded-2xl border border-[rgba(44,95,63,0.08)] shadow-sm overflow-hidden">
@@ -225,7 +141,7 @@ function DayCard({ entry, allShows, allSessions, allRestDays }: {
             )}
             {entry.restDay && (
               <span className="text-[11px] font-medium text-[#2A7EBF] bg-[#EEF7FF] px-2 py-0.5 rounded-full border border-[rgba(42,126,191,0.2)] whitespace-nowrap">
-                ☀️ Rest day
+                ☀️ Day off
               </span>
             )}
           </div>
@@ -324,7 +240,7 @@ function DayCard({ entry, allShows, allSessions, allRestDays }: {
       )}
     </div>
   );
-
+}
 
 function RestDayHistorySection({ date, restDay, allShows, allSessions, prevRestDays }: {
   date: string;
@@ -380,7 +296,7 @@ function RestDayHistorySection({ date, restDay, allShows, allSessions, prevRestD
 
   return (
     <div>
-      <p className="text-[11px] font-black tracking-widest uppercase text-[#5A8AAF] mb-2">Rest day</p>
+      <p className="text-[11px] font-black tracking-widest uppercase text-[#5A8AAF] mb-2">Day off</p>
       <div className="bg-[#EEF7FF] rounded-2xl p-4 border border-[rgba(42,126,191,0.08)] space-y-4">
 
         {/* Run header */}
@@ -476,6 +392,4 @@ function RestDayHistorySection({ date, restDay, allShows, allSessions, prevRestD
       </div>
     </div>
   );
-}
-
 }

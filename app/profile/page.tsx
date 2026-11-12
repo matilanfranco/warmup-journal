@@ -7,9 +7,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { db, auth } from "@/lib/firebase";
 import Image from "next/image";
-import { requestPermission, hasPermission } from "@/lib/notifications";
-import { useAppMode } from "@/lib/AppModeContext";
-import ModeToggleModal from "@/components/ModeToggleModal";
+import ReminderSettings from "@/components/ReminderSettings";
 
 const VOICE_TYPES = ["Soprano", "Mezzo-soprano", "Contralto", "Tenor", "Baritone", "Bass"];
 
@@ -32,16 +30,6 @@ export default function ProfilePage() {
   const [pwError, setPwError] = useState("");
   const [pwOk, setPwOk] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
-  const { mode } = useAppMode();
-  const [showModeModal, setShowModeModal] = useState(false);
-  const [notifStatus, setNotifStatus] = useState<"unknown" | "granted" | "denied">("unknown");
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotifStatus(Notification.permission as any);
-    }
-  }, []);
-
   useEffect(() => {
     if (profile) {
       setFirstName(profile.firstName ?? "");
@@ -79,11 +67,6 @@ export default function ProfilePage() {
     } catch (e: any) {
       setPwError(e.code === "auth/wrong-password" ? "Current password is incorrect." : "Something went wrong.");
     } finally { setPwSaving(false); }
-  };
-
-  const handleEnableNotifications = async () => {
-    const granted = await requestPermission();
-    setNotifStatus(granted ? "granted" : "denied");
   };
 
   const handleSignOut = async () => {
@@ -218,60 +201,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Mode toggle */}
-        <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm p-5 mb-4">
-          <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3">App mode</p>
-          <div className={`flex items-center justify-between rounded-2xl px-4 py-3 border ${
-            mode === "break"
-              ? "bg-[#FFF8F0] border-[rgba(139,94,60,0.15)]"
-              : "bg-[#EAF0EB] border-[rgba(44,95,63,0.15)]"
-          }`}>
-            <div>
-              <p className="text-[13px] font-semibold text-[#1C2B22]">
-                {mode === "break" ? "🌴 Break Mode" : "🎤 Contract Mode"}
-              </p>
-              <p className="text-[11px] text-[#8FA896] mt-0.5">
-                {mode === "break" ? "Relaxed daily check-ins" : "Full performance tracking"}
-              </p>
-            </div>
-            <button onClick={() => setShowModeModal(true)}
-              className="h-8 px-4 rounded-full border text-[11px] font-semibold transition-colors active:scale-95 bg-white text-[#5A7A65] border-[rgba(44,95,63,0.2)] hover:bg-[#F5F2EC]">
-              Switch
-            </button>
-          </div>
-        </div>
-
-        {/* Notifications */}
-        <div className="bg-white rounded-3xl border border-[rgba(44,95,63,0.08)] shadow-sm p-5 mb-4">
-          <p className="text-[10px] font-black tracking-widest uppercase text-[#8FA896] mb-3">Reminders</p>
-          {notifStatus === "granted" ? (
-            <div className="flex items-center gap-3 h-11 rounded-full bg-[#EAF0EB] border border-[rgba(44,95,63,0.15)] px-5">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M2 8L6 12L14 4" stroke="#2C5F3F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span className="text-[13px] font-semibold text-[#2C5F3F]">Notifications enabled</span>
-            </div>
-          ) : notifStatus === "denied" ? (
-            <div>
-              <div className="flex items-center gap-3 h-11 rounded-full bg-rose-50 border border-rose-200 px-5 mb-2">
-                <span className="text-[13px] font-semibold text-rose-600">Notifications blocked</span>
-              </div>
-              <p className="text-[11px] text-[#8FA896] text-center">
-                Go to iPhone Settings → The Daily Singer → Notifications to enable them.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <button onClick={handleEnableNotifications}
-                className="w-full h-11 rounded-full bg-[#2C5F3F] text-white text-[13px] font-semibold active:scale-[0.98] transition-transform mb-2">
-                🔔 Enable reminders
-              </button>
-              <p className="text-[11px] text-[#8FA896] text-center leading-relaxed">
-                Get reminders to finish your warmup, log your shows, and check in on rest days.
-              </p>
-            </div>
-          )}
-        </div>
+        <ReminderSettings />
 
         {/* Sign out */}
         <button onClick={handleSignOut}
@@ -280,7 +210,6 @@ export default function ProfilePage() {
         </button>
 
       </div>
-      {showModeModal && <ModeToggleModal onClose={() => setShowModeModal(false)} />}
     </main>
   );
 }
